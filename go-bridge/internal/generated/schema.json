@@ -1,0 +1,2212 @@
+{
+  "format": "gorack-go-ast-schema",
+  "formatVersion": 1,
+  "identity": {
+    "goVersion": "go1.23.2",
+    "schemaHash": "sha256:e70556ee3da296bef7886d0638688e392fa5b1e2429aaa5362379de5e1284135",
+    "astPackageHash": "sha256:440f791eaba5ca206fb654c36b1223a29cd1546b02b4d4dc5955dbe60815b945",
+    "tokenPackageHash": "sha256:07df8935a17f37527e431a55ac72b01952ad88f44112b4f502a985e087a8621c"
+  },
+  "nodes": [
+    {
+      "name": "ArrayType",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Expr"
+      ],
+      "fields": [
+        {
+          "name": "Lbrack",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Len",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": true,
+          "interface": "Expr"
+        },
+        {
+          "name": "Elt",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        }
+      ]
+    },
+    {
+      "name": "AssignStmt",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Stmt"
+      ],
+      "fields": [
+        {
+          "name": "Lhs",
+          "goType": "[]ast.Expr",
+          "kind": "node-list",
+          "optional": false,
+          "interface": "Expr"
+        },
+        {
+          "name": "TokPos",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Tok",
+          "goType": "token.Token",
+          "kind": "token",
+          "optional": false
+        },
+        {
+          "name": "Rhs",
+          "goType": "[]ast.Expr",
+          "kind": "node-list",
+          "optional": false,
+          "interface": "Expr"
+        }
+      ]
+    },
+    {
+      "name": "BadDecl",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Decl"
+      ],
+      "fields": [
+        {
+          "name": "From",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "To",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "name": "BadExpr",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Expr"
+      ],
+      "fields": [
+        {
+          "name": "From",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "To",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "name": "BadStmt",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Stmt"
+      ],
+      "fields": [
+        {
+          "name": "From",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "To",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "name": "BasicLit",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Expr"
+      ],
+      "fields": [
+        {
+          "name": "ValuePos",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Kind",
+          "goType": "token.Token",
+          "kind": "token",
+          "optional": false
+        },
+        {
+          "name": "Value",
+          "goType": "string",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "name": "BinaryExpr",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Expr"
+      ],
+      "fields": [
+        {
+          "name": "X",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        },
+        {
+          "name": "OpPos",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Op",
+          "goType": "token.Token",
+          "kind": "token",
+          "optional": false
+        },
+        {
+          "name": "Y",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        }
+      ]
+    },
+    {
+      "name": "BlockStmt",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Stmt"
+      ],
+      "fields": [
+        {
+          "name": "Lbrace",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "List",
+          "goType": "[]ast.Stmt",
+          "kind": "node-list",
+          "optional": false,
+          "interface": "Stmt"
+        },
+        {
+          "name": "Rbrace",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "name": "BranchStmt",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Stmt"
+      ],
+      "fields": [
+        {
+          "name": "TokPos",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Tok",
+          "goType": "token.Token",
+          "kind": "token",
+          "optional": false
+        },
+        {
+          "name": "Label",
+          "goType": "*ast.Ident",
+          "kind": "node",
+          "optional": true,
+          "element": "Ident"
+        }
+      ]
+    },
+    {
+      "name": "CallExpr",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Expr"
+      ],
+      "fields": [
+        {
+          "name": "Fun",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        },
+        {
+          "name": "Lparen",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Args",
+          "goType": "[]ast.Expr",
+          "kind": "node-list",
+          "optional": true,
+          "interface": "Expr"
+        },
+        {
+          "name": "Ellipsis",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Rparen",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "name": "CaseClause",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Stmt"
+      ],
+      "fields": [
+        {
+          "name": "Case",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "List",
+          "goType": "[]ast.Expr",
+          "kind": "node-list",
+          "optional": true,
+          "interface": "Expr"
+        },
+        {
+          "name": "Colon",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Body",
+          "goType": "[]ast.Stmt",
+          "kind": "node-list",
+          "optional": true,
+          "interface": "Stmt"
+        }
+      ]
+    },
+    {
+      "name": "ChanType",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Expr"
+      ],
+      "fields": [
+        {
+          "name": "Begin",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Arrow",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Dir",
+          "goType": "ast.ChanDir",
+          "kind": "enum",
+          "optional": false,
+          "enumType": "go/ast.ChanDir"
+        },
+        {
+          "name": "Value",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        }
+      ]
+    },
+    {
+      "name": "CommClause",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Stmt"
+      ],
+      "fields": [
+        {
+          "name": "Case",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Comm",
+          "goType": "ast.Stmt",
+          "kind": "node",
+          "optional": true,
+          "interface": "Stmt"
+        },
+        {
+          "name": "Colon",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Body",
+          "goType": "[]ast.Stmt",
+          "kind": "node-list",
+          "optional": true,
+          "interface": "Stmt"
+        }
+      ]
+    },
+    {
+      "name": "Comment",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node"
+      ],
+      "fields": [
+        {
+          "name": "Slash",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Text",
+          "goType": "string",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "name": "CommentGroup",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node"
+      ],
+      "fields": [
+        {
+          "name": "List",
+          "goType": "[]*ast.Comment",
+          "kind": "node-list",
+          "optional": false,
+          "element": "Comment"
+        }
+      ]
+    },
+    {
+      "name": "CompositeLit",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Expr"
+      ],
+      "fields": [
+        {
+          "name": "Type",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": true,
+          "interface": "Expr"
+        },
+        {
+          "name": "Lbrace",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Elts",
+          "goType": "[]ast.Expr",
+          "kind": "node-list",
+          "optional": true,
+          "interface": "Expr"
+        },
+        {
+          "name": "Rbrace",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Incomplete",
+          "goType": "bool",
+          "kind": "bool",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "name": "DeclStmt",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Stmt"
+      ],
+      "fields": [
+        {
+          "name": "Decl",
+          "goType": "ast.Decl",
+          "kind": "node",
+          "optional": false,
+          "interface": "Decl"
+        }
+      ]
+    },
+    {
+      "name": "DeferStmt",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Stmt"
+      ],
+      "fields": [
+        {
+          "name": "Defer",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Call",
+          "goType": "*ast.CallExpr",
+          "kind": "node",
+          "optional": false,
+          "element": "CallExpr"
+        }
+      ]
+    },
+    {
+      "name": "Ellipsis",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Expr"
+      ],
+      "fields": [
+        {
+          "name": "Ellipsis",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Elt",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": true,
+          "interface": "Expr"
+        }
+      ]
+    },
+    {
+      "name": "EmptyStmt",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Stmt"
+      ],
+      "fields": [
+        {
+          "name": "Semicolon",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Implicit",
+          "goType": "bool",
+          "kind": "bool",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "name": "ExprStmt",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Stmt"
+      ],
+      "fields": [
+        {
+          "name": "X",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        }
+      ]
+    },
+    {
+      "name": "Field",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node"
+      ],
+      "fields": [
+        {
+          "name": "Doc",
+          "goType": "*ast.CommentGroup",
+          "kind": "node",
+          "optional": true,
+          "element": "CommentGroup"
+        },
+        {
+          "name": "Names",
+          "goType": "[]*ast.Ident",
+          "kind": "node-list",
+          "optional": true,
+          "element": "Ident"
+        },
+        {
+          "name": "Type",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": true,
+          "interface": "Expr"
+        },
+        {
+          "name": "Tag",
+          "goType": "*ast.BasicLit",
+          "kind": "node",
+          "optional": true,
+          "element": "BasicLit"
+        },
+        {
+          "name": "Comment",
+          "goType": "*ast.CommentGroup",
+          "kind": "node",
+          "optional": true,
+          "element": "CommentGroup"
+        }
+      ]
+    },
+    {
+      "name": "FieldList",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node"
+      ],
+      "fields": [
+        {
+          "name": "Opening",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "List",
+          "goType": "[]*ast.Field",
+          "kind": "node-list",
+          "optional": true,
+          "element": "Field"
+        },
+        {
+          "name": "Closing",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "name": "File",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node"
+      ],
+      "fields": [
+        {
+          "name": "Doc",
+          "goType": "*ast.CommentGroup",
+          "kind": "node",
+          "optional": true,
+          "element": "CommentGroup"
+        },
+        {
+          "name": "Package",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Name",
+          "goType": "*ast.Ident",
+          "kind": "node",
+          "optional": false,
+          "element": "Ident"
+        },
+        {
+          "name": "Decls",
+          "goType": "[]ast.Decl",
+          "kind": "node-list",
+          "optional": true,
+          "interface": "Decl"
+        },
+        {
+          "name": "FileStart",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "FileEnd",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Imports",
+          "goType": "[]*ast.ImportSpec",
+          "kind": "node-list",
+          "optional": false,
+          "element": "ImportSpec"
+        },
+        {
+          "name": "Comments",
+          "goType": "[]*ast.CommentGroup",
+          "kind": "node-list",
+          "optional": false,
+          "element": "CommentGroup"
+        },
+        {
+          "name": "GoVersion",
+          "goType": "string",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "name": "ForStmt",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Stmt"
+      ],
+      "fields": [
+        {
+          "name": "For",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Init",
+          "goType": "ast.Stmt",
+          "kind": "node",
+          "optional": true,
+          "interface": "Stmt"
+        },
+        {
+          "name": "Cond",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": true,
+          "interface": "Expr"
+        },
+        {
+          "name": "Post",
+          "goType": "ast.Stmt",
+          "kind": "node",
+          "optional": true,
+          "interface": "Stmt"
+        },
+        {
+          "name": "Body",
+          "goType": "*ast.BlockStmt",
+          "kind": "node",
+          "optional": false,
+          "element": "BlockStmt"
+        }
+      ]
+    },
+    {
+      "name": "FuncDecl",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Decl"
+      ],
+      "fields": [
+        {
+          "name": "Doc",
+          "goType": "*ast.CommentGroup",
+          "kind": "node",
+          "optional": true,
+          "element": "CommentGroup"
+        },
+        {
+          "name": "Recv",
+          "goType": "*ast.FieldList",
+          "kind": "node",
+          "optional": true,
+          "element": "FieldList"
+        },
+        {
+          "name": "Name",
+          "goType": "*ast.Ident",
+          "kind": "node",
+          "optional": false,
+          "element": "Ident"
+        },
+        {
+          "name": "Type",
+          "goType": "*ast.FuncType",
+          "kind": "node",
+          "optional": false,
+          "element": "FuncType"
+        },
+        {
+          "name": "Body",
+          "goType": "*ast.BlockStmt",
+          "kind": "node",
+          "optional": true,
+          "element": "BlockStmt"
+        }
+      ]
+    },
+    {
+      "name": "FuncLit",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Expr"
+      ],
+      "fields": [
+        {
+          "name": "Type",
+          "goType": "*ast.FuncType",
+          "kind": "node",
+          "optional": false,
+          "element": "FuncType"
+        },
+        {
+          "name": "Body",
+          "goType": "*ast.BlockStmt",
+          "kind": "node",
+          "optional": false,
+          "element": "BlockStmt"
+        }
+      ]
+    },
+    {
+      "name": "FuncType",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Expr"
+      ],
+      "fields": [
+        {
+          "name": "Func",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "TypeParams",
+          "goType": "*ast.FieldList",
+          "kind": "node",
+          "optional": true,
+          "element": "FieldList"
+        },
+        {
+          "name": "Params",
+          "goType": "*ast.FieldList",
+          "kind": "node",
+          "optional": false,
+          "element": "FieldList"
+        },
+        {
+          "name": "Results",
+          "goType": "*ast.FieldList",
+          "kind": "node",
+          "optional": true,
+          "element": "FieldList"
+        }
+      ]
+    },
+    {
+      "name": "GenDecl",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Decl"
+      ],
+      "fields": [
+        {
+          "name": "Doc",
+          "goType": "*ast.CommentGroup",
+          "kind": "node",
+          "optional": true,
+          "element": "CommentGroup"
+        },
+        {
+          "name": "TokPos",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Tok",
+          "goType": "token.Token",
+          "kind": "token",
+          "optional": false
+        },
+        {
+          "name": "Lparen",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Specs",
+          "goType": "[]ast.Spec",
+          "kind": "node-list",
+          "optional": false,
+          "interface": "Spec"
+        },
+        {
+          "name": "Rparen",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "name": "GoStmt",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Stmt"
+      ],
+      "fields": [
+        {
+          "name": "Go",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Call",
+          "goType": "*ast.CallExpr",
+          "kind": "node",
+          "optional": false,
+          "element": "CallExpr"
+        }
+      ]
+    },
+    {
+      "name": "Ident",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Expr"
+      ],
+      "fields": [
+        {
+          "name": "NamePos",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Name",
+          "goType": "string",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "name": "IfStmt",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Stmt"
+      ],
+      "fields": [
+        {
+          "name": "If",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Init",
+          "goType": "ast.Stmt",
+          "kind": "node",
+          "optional": true,
+          "interface": "Stmt"
+        },
+        {
+          "name": "Cond",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        },
+        {
+          "name": "Body",
+          "goType": "*ast.BlockStmt",
+          "kind": "node",
+          "optional": false,
+          "element": "BlockStmt"
+        },
+        {
+          "name": "Else",
+          "goType": "ast.Stmt",
+          "kind": "node",
+          "optional": true,
+          "interface": "Stmt"
+        }
+      ]
+    },
+    {
+      "name": "ImportSpec",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Spec"
+      ],
+      "fields": [
+        {
+          "name": "Doc",
+          "goType": "*ast.CommentGroup",
+          "kind": "node",
+          "optional": true,
+          "element": "CommentGroup"
+        },
+        {
+          "name": "Name",
+          "goType": "*ast.Ident",
+          "kind": "node",
+          "optional": true,
+          "element": "Ident"
+        },
+        {
+          "name": "Path",
+          "goType": "*ast.BasicLit",
+          "kind": "node",
+          "optional": false,
+          "element": "BasicLit"
+        },
+        {
+          "name": "Comment",
+          "goType": "*ast.CommentGroup",
+          "kind": "node",
+          "optional": true,
+          "element": "CommentGroup"
+        },
+        {
+          "name": "EndPos",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "name": "IncDecStmt",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Stmt"
+      ],
+      "fields": [
+        {
+          "name": "X",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        },
+        {
+          "name": "TokPos",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Tok",
+          "goType": "token.Token",
+          "kind": "token",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "name": "IndexExpr",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Expr"
+      ],
+      "fields": [
+        {
+          "name": "X",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        },
+        {
+          "name": "Lbrack",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Index",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        },
+        {
+          "name": "Rbrack",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "name": "IndexListExpr",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Expr"
+      ],
+      "fields": [
+        {
+          "name": "X",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        },
+        {
+          "name": "Lbrack",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Indices",
+          "goType": "[]ast.Expr",
+          "kind": "node-list",
+          "optional": false,
+          "interface": "Expr"
+        },
+        {
+          "name": "Rbrack",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "name": "InterfaceType",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Expr"
+      ],
+      "fields": [
+        {
+          "name": "Interface",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Methods",
+          "goType": "*ast.FieldList",
+          "kind": "node",
+          "optional": false,
+          "element": "FieldList"
+        },
+        {
+          "name": "Incomplete",
+          "goType": "bool",
+          "kind": "bool",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "name": "KeyValueExpr",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Expr"
+      ],
+      "fields": [
+        {
+          "name": "Key",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        },
+        {
+          "name": "Colon",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Value",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        }
+      ]
+    },
+    {
+      "name": "LabeledStmt",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Stmt"
+      ],
+      "fields": [
+        {
+          "name": "Label",
+          "goType": "*ast.Ident",
+          "kind": "node",
+          "optional": false,
+          "element": "Ident"
+        },
+        {
+          "name": "Colon",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Stmt",
+          "goType": "ast.Stmt",
+          "kind": "node",
+          "optional": false,
+          "interface": "Stmt"
+        }
+      ]
+    },
+    {
+      "name": "MapType",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Expr"
+      ],
+      "fields": [
+        {
+          "name": "Map",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Key",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        },
+        {
+          "name": "Value",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        }
+      ]
+    },
+    {
+      "name": "Package",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node"
+      ],
+      "fields": [
+        {
+          "name": "Name",
+          "goType": "string",
+          "kind": "string",
+          "optional": false
+        },
+        {
+          "name": "Files",
+          "goType": "map[string]*ast.File",
+          "kind": "node-map",
+          "optional": false,
+          "element": "File"
+        }
+      ]
+    },
+    {
+      "name": "ParenExpr",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Expr"
+      ],
+      "fields": [
+        {
+          "name": "Lparen",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "X",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        },
+        {
+          "name": "Rparen",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "name": "RangeStmt",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Stmt"
+      ],
+      "fields": [
+        {
+          "name": "For",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Key",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": true,
+          "interface": "Expr"
+        },
+        {
+          "name": "Value",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": true,
+          "interface": "Expr"
+        },
+        {
+          "name": "TokPos",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Tok",
+          "goType": "token.Token",
+          "kind": "token",
+          "optional": false
+        },
+        {
+          "name": "Range",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "X",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        },
+        {
+          "name": "Body",
+          "goType": "*ast.BlockStmt",
+          "kind": "node",
+          "optional": false,
+          "element": "BlockStmt"
+        }
+      ]
+    },
+    {
+      "name": "ReturnStmt",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Stmt"
+      ],
+      "fields": [
+        {
+          "name": "Return",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Results",
+          "goType": "[]ast.Expr",
+          "kind": "node-list",
+          "optional": true,
+          "interface": "Expr"
+        }
+      ]
+    },
+    {
+      "name": "SelectStmt",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Stmt"
+      ],
+      "fields": [
+        {
+          "name": "Select",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Body",
+          "goType": "*ast.BlockStmt",
+          "kind": "node",
+          "optional": false,
+          "element": "BlockStmt"
+        }
+      ]
+    },
+    {
+      "name": "SelectorExpr",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Expr"
+      ],
+      "fields": [
+        {
+          "name": "X",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        },
+        {
+          "name": "Sel",
+          "goType": "*ast.Ident",
+          "kind": "node",
+          "optional": false,
+          "element": "Ident"
+        }
+      ]
+    },
+    {
+      "name": "SendStmt",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Stmt"
+      ],
+      "fields": [
+        {
+          "name": "Chan",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        },
+        {
+          "name": "Arrow",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Value",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        }
+      ]
+    },
+    {
+      "name": "SliceExpr",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Expr"
+      ],
+      "fields": [
+        {
+          "name": "X",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        },
+        {
+          "name": "Lbrack",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Low",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": true,
+          "interface": "Expr"
+        },
+        {
+          "name": "High",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": true,
+          "interface": "Expr"
+        },
+        {
+          "name": "Max",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": true,
+          "interface": "Expr"
+        },
+        {
+          "name": "Slice3",
+          "goType": "bool",
+          "kind": "bool",
+          "optional": false
+        },
+        {
+          "name": "Rbrack",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "name": "StarExpr",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Expr"
+      ],
+      "fields": [
+        {
+          "name": "Star",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "X",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        }
+      ]
+    },
+    {
+      "name": "StructType",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Expr"
+      ],
+      "fields": [
+        {
+          "name": "Struct",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Fields",
+          "goType": "*ast.FieldList",
+          "kind": "node",
+          "optional": false,
+          "element": "FieldList"
+        },
+        {
+          "name": "Incomplete",
+          "goType": "bool",
+          "kind": "bool",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "name": "SwitchStmt",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Stmt"
+      ],
+      "fields": [
+        {
+          "name": "Switch",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Init",
+          "goType": "ast.Stmt",
+          "kind": "node",
+          "optional": true,
+          "interface": "Stmt"
+        },
+        {
+          "name": "Tag",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": true,
+          "interface": "Expr"
+        },
+        {
+          "name": "Body",
+          "goType": "*ast.BlockStmt",
+          "kind": "node",
+          "optional": false,
+          "element": "BlockStmt"
+        }
+      ]
+    },
+    {
+      "name": "TypeAssertExpr",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Expr"
+      ],
+      "fields": [
+        {
+          "name": "X",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        },
+        {
+          "name": "Lparen",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Type",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": true,
+          "interface": "Expr"
+        },
+        {
+          "name": "Rparen",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "name": "TypeSpec",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Spec"
+      ],
+      "fields": [
+        {
+          "name": "Doc",
+          "goType": "*ast.CommentGroup",
+          "kind": "node",
+          "optional": true,
+          "element": "CommentGroup"
+        },
+        {
+          "name": "Name",
+          "goType": "*ast.Ident",
+          "kind": "node",
+          "optional": false,
+          "element": "Ident"
+        },
+        {
+          "name": "TypeParams",
+          "goType": "*ast.FieldList",
+          "kind": "node",
+          "optional": true,
+          "element": "FieldList"
+        },
+        {
+          "name": "Assign",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Type",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        },
+        {
+          "name": "Comment",
+          "goType": "*ast.CommentGroup",
+          "kind": "node",
+          "optional": true,
+          "element": "CommentGroup"
+        }
+      ]
+    },
+    {
+      "name": "TypeSwitchStmt",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Stmt"
+      ],
+      "fields": [
+        {
+          "name": "Switch",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Init",
+          "goType": "ast.Stmt",
+          "kind": "node",
+          "optional": true,
+          "interface": "Stmt"
+        },
+        {
+          "name": "Assign",
+          "goType": "ast.Stmt",
+          "kind": "node",
+          "optional": false,
+          "interface": "Stmt"
+        },
+        {
+          "name": "Body",
+          "goType": "*ast.BlockStmt",
+          "kind": "node",
+          "optional": false,
+          "element": "BlockStmt"
+        }
+      ]
+    },
+    {
+      "name": "UnaryExpr",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Expr"
+      ],
+      "fields": [
+        {
+          "name": "OpPos",
+          "goType": "token.Pos",
+          "kind": "position",
+          "optional": true
+        },
+        {
+          "name": "Op",
+          "goType": "token.Token",
+          "kind": "token",
+          "optional": false
+        },
+        {
+          "name": "X",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": false,
+          "interface": "Expr"
+        }
+      ]
+    },
+    {
+      "name": "ValueSpec",
+      "namespace": "go/ast",
+      "interfaces": [
+        "Node",
+        "Spec"
+      ],
+      "fields": [
+        {
+          "name": "Doc",
+          "goType": "*ast.CommentGroup",
+          "kind": "node",
+          "optional": true,
+          "element": "CommentGroup"
+        },
+        {
+          "name": "Names",
+          "goType": "[]*ast.Ident",
+          "kind": "node-list",
+          "optional": false,
+          "element": "Ident"
+        },
+        {
+          "name": "Type",
+          "goType": "ast.Expr",
+          "kind": "node",
+          "optional": true,
+          "interface": "Expr"
+        },
+        {
+          "name": "Values",
+          "goType": "[]ast.Expr",
+          "kind": "node-list",
+          "optional": true,
+          "interface": "Expr"
+        },
+        {
+          "name": "Comment",
+          "goType": "*ast.CommentGroup",
+          "kind": "node",
+          "optional": true,
+          "element": "CommentGroup"
+        }
+      ]
+    }
+  ],
+  "tokens": [
+    {
+      "name": "ILLEGAL",
+      "spelling": "ILLEGAL"
+    },
+    {
+      "name": "EOF",
+      "spelling": "EOF"
+    },
+    {
+      "name": "COMMENT",
+      "spelling": "COMMENT"
+    },
+    {
+      "name": "IDENT",
+      "spelling": "IDENT"
+    },
+    {
+      "name": "INT",
+      "spelling": "INT"
+    },
+    {
+      "name": "FLOAT",
+      "spelling": "FLOAT"
+    },
+    {
+      "name": "IMAG",
+      "spelling": "IMAG"
+    },
+    {
+      "name": "CHAR",
+      "spelling": "CHAR"
+    },
+    {
+      "name": "STRING",
+      "spelling": "STRING"
+    },
+    {
+      "name": "ADD",
+      "spelling": "+"
+    },
+    {
+      "name": "SUB",
+      "spelling": "-"
+    },
+    {
+      "name": "MUL",
+      "spelling": "*"
+    },
+    {
+      "name": "QUO",
+      "spelling": "/"
+    },
+    {
+      "name": "REM",
+      "spelling": "%"
+    },
+    {
+      "name": "AND",
+      "spelling": "\u0026"
+    },
+    {
+      "name": "OR",
+      "spelling": "|"
+    },
+    {
+      "name": "XOR",
+      "spelling": "^"
+    },
+    {
+      "name": "SHL",
+      "spelling": "\u003c\u003c"
+    },
+    {
+      "name": "SHR",
+      "spelling": "\u003e\u003e"
+    },
+    {
+      "name": "AND_NOT",
+      "spelling": "\u0026^"
+    },
+    {
+      "name": "ADD_ASSIGN",
+      "spelling": "+="
+    },
+    {
+      "name": "SUB_ASSIGN",
+      "spelling": "-="
+    },
+    {
+      "name": "MUL_ASSIGN",
+      "spelling": "*="
+    },
+    {
+      "name": "QUO_ASSIGN",
+      "spelling": "/="
+    },
+    {
+      "name": "REM_ASSIGN",
+      "spelling": "%="
+    },
+    {
+      "name": "AND_ASSIGN",
+      "spelling": "\u0026="
+    },
+    {
+      "name": "OR_ASSIGN",
+      "spelling": "|="
+    },
+    {
+      "name": "XOR_ASSIGN",
+      "spelling": "^="
+    },
+    {
+      "name": "SHL_ASSIGN",
+      "spelling": "\u003c\u003c="
+    },
+    {
+      "name": "SHR_ASSIGN",
+      "spelling": "\u003e\u003e="
+    },
+    {
+      "name": "AND_NOT_ASSIGN",
+      "spelling": "\u0026^="
+    },
+    {
+      "name": "LAND",
+      "spelling": "\u0026\u0026"
+    },
+    {
+      "name": "LOR",
+      "spelling": "||"
+    },
+    {
+      "name": "ARROW",
+      "spelling": "\u003c-"
+    },
+    {
+      "name": "INC",
+      "spelling": "++"
+    },
+    {
+      "name": "DEC",
+      "spelling": "--"
+    },
+    {
+      "name": "EQL",
+      "spelling": "=="
+    },
+    {
+      "name": "LSS",
+      "spelling": "\u003c"
+    },
+    {
+      "name": "GTR",
+      "spelling": "\u003e"
+    },
+    {
+      "name": "ASSIGN",
+      "spelling": "="
+    },
+    {
+      "name": "NOT",
+      "spelling": "!"
+    },
+    {
+      "name": "NEQ",
+      "spelling": "!="
+    },
+    {
+      "name": "LEQ",
+      "spelling": "\u003c="
+    },
+    {
+      "name": "GEQ",
+      "spelling": "\u003e="
+    },
+    {
+      "name": "DEFINE",
+      "spelling": ":="
+    },
+    {
+      "name": "ELLIPSIS",
+      "spelling": "..."
+    },
+    {
+      "name": "LPAREN",
+      "spelling": "("
+    },
+    {
+      "name": "LBRACK",
+      "spelling": "["
+    },
+    {
+      "name": "LBRACE",
+      "spelling": "{"
+    },
+    {
+      "name": "COMMA",
+      "spelling": ","
+    },
+    {
+      "name": "PERIOD",
+      "spelling": "."
+    },
+    {
+      "name": "RPAREN",
+      "spelling": ")"
+    },
+    {
+      "name": "RBRACK",
+      "spelling": "]"
+    },
+    {
+      "name": "RBRACE",
+      "spelling": "}"
+    },
+    {
+      "name": "SEMICOLON",
+      "spelling": ";"
+    },
+    {
+      "name": "COLON",
+      "spelling": ":"
+    },
+    {
+      "name": "BREAK",
+      "spelling": "break"
+    },
+    {
+      "name": "CASE",
+      "spelling": "case"
+    },
+    {
+      "name": "CHAN",
+      "spelling": "chan"
+    },
+    {
+      "name": "CONST",
+      "spelling": "const"
+    },
+    {
+      "name": "CONTINUE",
+      "spelling": "continue"
+    },
+    {
+      "name": "DEFAULT",
+      "spelling": "default"
+    },
+    {
+      "name": "DEFER",
+      "spelling": "defer"
+    },
+    {
+      "name": "ELSE",
+      "spelling": "else"
+    },
+    {
+      "name": "FALLTHROUGH",
+      "spelling": "fallthrough"
+    },
+    {
+      "name": "FOR",
+      "spelling": "for"
+    },
+    {
+      "name": "FUNC",
+      "spelling": "func"
+    },
+    {
+      "name": "GO",
+      "spelling": "go"
+    },
+    {
+      "name": "GOTO",
+      "spelling": "goto"
+    },
+    {
+      "name": "IF",
+      "spelling": "if"
+    },
+    {
+      "name": "IMPORT",
+      "spelling": "import"
+    },
+    {
+      "name": "INTERFACE",
+      "spelling": "interface"
+    },
+    {
+      "name": "MAP",
+      "spelling": "map"
+    },
+    {
+      "name": "PACKAGE",
+      "spelling": "package"
+    },
+    {
+      "name": "RANGE",
+      "spelling": "range"
+    },
+    {
+      "name": "RETURN",
+      "spelling": "return"
+    },
+    {
+      "name": "SELECT",
+      "spelling": "select"
+    },
+    {
+      "name": "STRUCT",
+      "spelling": "struct"
+    },
+    {
+      "name": "SWITCH",
+      "spelling": "switch"
+    },
+    {
+      "name": "TYPE",
+      "spelling": "type"
+    },
+    {
+      "name": "VAR",
+      "spelling": "var"
+    },
+    {
+      "name": "TILDE",
+      "spelling": "~"
+    }
+  ],
+  "enums": [
+    {
+      "name": "ChanDir",
+      "namespace": "go/ast",
+      "goType": "ast.ChanDir",
+      "flags": true,
+      "values": [
+        {
+          "name": "SEND"
+        },
+        {
+          "name": "RECV"
+        }
+      ]
+    }
+  ],
+  "excludedFields": [
+    {
+      "path": "go/ast.File.Scope",
+      "reason": "deprecated-object-resolution"
+    },
+    {
+      "path": "go/ast.File.Unresolved",
+      "reason": "deprecated-object-resolution"
+    },
+    {
+      "path": "go/ast.Ident.Obj",
+      "reason": "deprecated-object-resolution"
+    },
+    {
+      "path": "go/ast.Package.Imports",
+      "reason": "deprecated-object-resolution"
+    },
+    {
+      "path": "go/ast.Package.Scope",
+      "reason": "deprecated-object-resolution"
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+("8.10" ta6le ("03d1c8746c715345cfc825601f4ca497d5a79bee" . "a954fd8787256c2c4123abd1ea13f825b501c91e") (collects #"gorack" #"metadata" #"source.rkt") (collects #"racket" #"base.rkt") (collects #"racket" #"contract.rkt") (collects #"racket" #"list.rkt") (collects #"racket" #"runtime-config.rkt") (collects #"rackunit" #"main.rkt"))
