@@ -1,0 +1,1 @@
+("8.10" ta6le ("54edac24ee1d028761f03fa28203d8aca84f11f5" . "e533117bf301efc76b33c2dd39059143398b064e") (collects #"gorack" #"go-kernel" #"node.rkt") (collects #"racket" #"base.rkt") (collects #"racket" #"runtime-config.rkt") (collects #"rackunit" #"main.rkt"))

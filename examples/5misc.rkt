@@ -1,0 +1,31 @@
+#lang gorack
+
+(package methods
+  (import "fmt")
+(defn main ()
+      (:= x 1)
+      (if_ #t #t)
+      (index arr 2)
+      (slice-expr s 1 3)
+      (slice-expr s 1 3 5)
+      (type-assert x T)
+      (array 3 int)
+      (slice int)
+      (map_ str int)
+      (! ok)
+      (&& a b)
+      (>= 7 5)
+      (return (+ 2 3))
+      (block (:= x 9) (return 9))
+      (if_ condy  
+        (return 3)
+        (return 4)
+      )
+      (for_ keepGoing
+        (return 0)
+      )
+      (for_ (:= i 0) (< i 3) (+= i 1)
+        (return i)
+      )
+      )
+)
