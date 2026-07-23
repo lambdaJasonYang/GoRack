@@ -1,7 +1,8 @@
 #lang gorack
+
 (package structs
   (type MyStruct
-    (struct_
+    (struct
       (x int)
       ([x y] int)
       (FieldName string)
