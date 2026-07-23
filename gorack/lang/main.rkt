@@ -11,17 +11,53 @@
          "../go-kernel/generated/tokens.rkt"
          "../go-kernel/wire.rkt")
 
-;; export the language kernel bindings
+;; Public #lang gorack surface. Internal AST helpers stay private.
 (provide
-  (rename-out [gorack-#%module-begin #%module-begin]   ; pass-through begin
-              [gorack-#%top        #%top]
-              [gorack-#%top        #%top-interaction]
-              [gorack-#%datum      #%datum]
-              ) ; optional, nice for REPL
-  #%app
-  (all-defined-out)
-  (all-from-out "../go-kernel/generated/tokens.rkt")
-  )
+  (rename-out [gorack-#%module-begin #%module-begin]
+              [gorack-#%top #%top]
+              [gorack-#%top #%top-interaction]
+              [gorack-#%datum #%datum]
+              [gorack-#%app #%app]
+              [gorack-if if]
+              [gorack-for for]
+              [gorack-map map]
+              [gorack-struct struct]
+              [gorack-interface interface]
+              [gorack-go go]
+              [gorack-defer defer]
+              [gorack-break break]
+              [gorack-continue continue]
+              [gorack-and and]
+              [gorack-or or]
+              [gorack-plus +]
+              [gorack-minus -]
+              [gorack-times *]
+              [gorack-amp &]
+              [gorack-define :=]
+              [gorack-assign =]
+              [gorack-add-assign +=]
+              [gorack-sub-assign -=]
+              [gorack-mul-assign *=]
+              [gorack-quo-assign /=]
+              [gorack-rem-assign %=]
+              [gorack-and-assign &=]
+              [gorack-or-assign bit-or=]
+              [gorack-xor-assign ^=]
+              [gorack-shl-assign <<=]
+              [gorack-shr-assign >>=]
+              [gorack-and-not-assign &^=])
+  package import
+  defn fn
+  type type-alias var var= const=
+  array slice ptr chan chan-send chan-recv
+  sel index index-list slice-expr type-assert
+  composite kv tag rawtag go-literal nil spread
+  ! ~ <- / % bit-or xor and-not << >> == != < <= > >=
+  return block for-range switch select type-switch
+  send inc dec label goto fallthrough decl
+  write-go-kernel-json write-go-kernel-json-file
+  (all-from-out "../go-kernel/generated/tokens.rkt"))
+
 ;; Emit the versioned Go-kernel graph envelope.
 (define (write-go-kernel-json n)
   (write-go-ast-json (current-output-port) n))
@@ -30,52 +66,95 @@
   (write-go-ast-json-file path n))
 
 
-;; === put this NEAR THE TOP of lang/main.rkt, before switch/switch* ===
 (begin-for-syntax
-   ;; Bare id → (->ident* 'id); anything else passes through.
+  ;; Surface form names are still valid Go identifiers in operand position.
+  ;; For example, a range variable named `index` must not evaluate to the
+  ;; Gorack `index` constructor when used as an argument.
+  (define surface-identifier-names
+    '(package import defn fn type type-alias var var= const=
+      array slice ptr chan chan-send chan-recv sel index index-list
+      slice-expr type-assert composite kv tag rawtag go-literal nil spread
+      return block for-range switch select type-switch send inc dec label
+      goto fallthrough decl if for map struct interface go defer break
+      continue and or bit-or xor and-not))
+
+  (define surface-runtime-head-names
+    '(array slice map chan chan-send chan-recv index index-list slice-expr
+      type-assert kv spread return block))
+
+  (define (go-identifier-position? id)
+    (or (not (identifier-binding id))
+        (memq (syntax-e id) surface-identifier-names)))
+
+  ;; Bare Go identifiers become AST identifiers before Racket can resolve a
+  ;; same-named surface helper. Other expressions pass through unchanged.
   (define-syntax-class exprish
     #:attributes (datum)
     (pattern id:id
-      #:with datum #`(->ident* '#,(syntax-e #'id)))
+      #:when (go-identifier-position? #'id)
+      #:with datum #`(->qualified-ident* '#,(syntax-e #'id)))
     (pattern e:expr
       #:with datum #'e)))
 ;; ---------- compile-time helpers ----------
 (begin-for-syntax
+  (define (square-bracketed? stx)
+    (eqv? (syntax-property stx 'paren-shape) #\[))
+
+  ;; Recognize the simple statement forms accepted by the compact three-part
+  ;; loop spelling. Arbitrary init/post expressions remain available through
+  ;; explicit (init ...) and (post ...) clauses.
+  (define for-simple-statement-heads
+    '(:= = += -= *= /= %= &= bit-or= ^= <<= >>= &^= inc dec send))
+
+  (define (for-simple-statement? stx)
+    (syntax-parse stx
+      [(head:id . _)
+       (memq (syntax-e #'head) for-simple-statement-heads)]
+      [_ #f]))
+
   ;; An identifier like `int`/`error` → (->ident* 'int), arbitrary expr passes through.
   (define-syntax-class typeish
     #:attributes (datum)
     (pattern id:id
-      #:with datum #`(->ident* '#,(syntax-e #'id)))
+      #:with datum #`(->qualified-ident* '#,(syntax-e #'id)))
     ;; Optional: accept string type names as a future surface convenience.
-    ; (pattern s:string
-    ;   #:with datum #`(->ident* #,(syntax-e #'s)))
     (pattern e:expr
       #:with datum #'e))
 
-  ;; Accept [x T] or (x T). T is id / "string" / expr.
+  ;; Binding entries use square brackets. This keeps compound type forms such
+  ;; as (slice byte) unambiguous in result lists.
   (define-syntax-class param-pair
     #:attributes (name type datum)
-    (pattern [nm:id ty:typeish]
-      #:with name  #'nm
-      #:with type  #'ty.datum
-      #:with datum #`(list '#,(syntax-e #'nm) ty.datum))
-    (pattern (nm:id ty:typeish)
-      #:with name  #'nm
-      #:with type  #'ty.datum
+    (pattern (~and whole (nm:id ty:typeish))
+      #:when (square-bracketed? #'whole)
+      #:with name #'nm
+      #:with type #'ty.datum
       #:with datum #`(list '#,(syntax-e #'nm) ty.datum)))
 
-  ;; Results can be named or unnamed; same typeish handling.
+  ;; Named results use [name Type]; every other expression is an unnamed type.
   (define-syntax-class result-item
     #:attributes (datum)
-    (pattern [nm:id ty:typeish]
-      #:with datum #`(list '#,(syntax-e #'nm) ty.datum))
-    (pattern (nm:id ty:typeish)
+    (pattern (~and whole (nm:id ty:typeish))
+      #:when (square-bracketed? #'whole)
       #:with datum #`(list '#,(syntax-e #'nm) ty.datum))
     (pattern ty:typeish
       #:with datum #'ty.datum))
+
+  ;; Canonical function signature: (-> ([x T] ...) (Result ...)).
+  ;; The parameter/result groups may use either Racket delimiter; named
+  ;; bindings themselves use square brackets.
+  (define-syntax-class go-signature
+    #:attributes (params results)
+    #:datum-literals (->)
+    (pattern (-> (p:param-pair ...) (r:result-item ...))
+      #:with params #'(list p.datum ...)
+      #:with results #'(list r.datum ...)))
 )
 
 
+(define-syntax (go-expr stx)
+  (syntax-parse stx
+    [(_ value:exprish) #'value.datum]))
 
 (define-syntax (gorack-#%datum stx)
   (syntax-parse stx
@@ -119,13 +198,28 @@
 
 ;; ---------------- helpers (runtime) ----------------
 
-; (define (->ident* s) (go:Ident (new-id!) #f (if (symbol? s) (symbol->string s) s)))
 (define (->ident* s)
   (cond
     [(symbol? s) (go:Ident #:id (new-id!) #:name-pos #f #:name (symbol->string s))]
     [(string? s) (go:Ident #:id (new-id!) #:name-pos #f #:name s)]
     [else (error '->ident*
             (format "expected symbol/string, got ~v" s))]))
+
+(define (->qualified-ident* value)
+  (define text
+    (cond
+      [(symbol? value) (symbol->string value)]
+      [(string? value) value]
+      [else (error '->qualified-ident*
+                   (format "expected symbol/string, got ~v" value))]))
+  (define parts (string-split text "."))
+  (if (or (null? parts) (null? (cdr parts)))
+      (->ident* text)
+      (for/fold ([base (->ident* (car parts))])
+                ([field (in-list (cdr parts))])
+        (go:SelectorExpr #:id (new-id!)
+                         #:x base
+                         #:sel (->ident* field)))))
 
 
 ;; ── Decl coercions ──────────────────────────────────────────────────────────
@@ -151,8 +245,8 @@
          (go:FuncLit? v) 
          (go:FuncType? v) (go:InterfaceType? v))
      v]
-    [(symbol? v)   (->ident* v)]
-    [(string? v)   (->ident* v)]
+    [(symbol? v)   (->qualified-ident* v)]
+    [(string? v)   (->qualified-ident* v)]
     [(boolean? v)  (mkbool v)]
     [(exact-integer? v) (mkint v)     ]
     [(real? v) (mkfloat v)]
@@ -182,11 +276,9 @@
   (go:File #:id (new-id!) #:doc #f #:package #f #:name (->ident* name) #:decls decls #:file-start #f #:file-end #f #:imports (maybe-null imports) #:comments #f #:go-version ""))
 ;; --------------- base exprs / literals ----------------
 
-(define (ident v) (->ident* v))
 
-;;------------functions you would actually call in your gorack lang to construct go types
+;; Literal constructors used by the surface reader.
 (define (mkstr s)   (go:BasicLit #:id (new-id!) #:value-pos #f #:kind 'STRING #:value (go-string s)))
-(define str "string") ;;racket `string` conflicts with string
 (define (mkint n)   (go:BasicLit #:id (new-id!) #:value-pos #f #:kind 'INT #:value (number->string n)))
 (define (mkfloat x) (go:BasicLit #:id (new-id!) #:value-pos #f #:kind 'FLOAT #:value (number->string x)))
 (define (mkbool b)  (->ident* (if b 'true 'false)))
@@ -208,37 +300,43 @@
   (syntax-parse stx
     [(_ x:expr field:id)
      #`(go:SelectorExpr #:id (new-id!) #:x (->expr x) #:sel (->ident* '#,(syntax-e #'field)))]))
-; (define-syntax (sel stx)
-;   (syntax-parse stx
-;     [(_ x:expr field:id)
-;      #'(go:SelectorExpr (new-id!) (->expr x) (->ident* 'field))]))
 
 ;; Pass-through module-begin: expand user forms as a normal Racket module.
-; (define-syntax (dsl-#%module-begin stx)
-;   (syntax-parse stx
-;     [(_ form ...)
 
-;      #'(#%plain-module-begin
-;         form ...)]))
 
-;;helper for call  
+;; Build a Go call. A final (spread xs) marks a variadic call.
 (define (spread xs) (list 'spread xs))
 
-(define (call f . args)
-  ;; support optional variadic "spread" sentinel in the last position
+(define (make-go-call f args)
   (define spread?
     (and (pair? args)
          (pair? (last args))
          (eq? (car (last args)) 'spread)))
-
-  ;; if you ever use (spread x), keep x as the last arg
   (define args*
     (if spread?
         (append (drop-right args 1) (list (cadr (last args))))
         args))
+  (go:CallExpr #:id (new-id!)
+               #:fun (->expr f)
+               #:lparen #f
+               #:args (map ->expr args*)
+               #:ellipsis (and spread? (ast-position "generated" 0))
+               #:rparen #f))
 
-  (go:CallExpr #:id (new-id!) #:fun (->expr f) #:lparen #f #:args (map ->expr args*) #:ellipsis (and spread? (ast-position "generated" 0)) #:rparen #f))
-;; use like: (call f a b (spread xs))
+;; Bound Gorack forms and helpers use normal Racket application. An unbound or
+;; computed head is a Go callee, so (fmt.Println x) and (f x) create CallExprs.
+(define-syntax (gorack-#%app stx)
+  (syntax-parse stx
+    [(_ f:id arg:exprish ...)
+     (cond
+       [(not (identifier-binding #'f))
+        #'(make-go-call f (list arg.datum ...))]
+       [(memq (syntax-e #'f) surface-runtime-head-names)
+        #'(#%plain-app f arg.datum ...)]
+       [else
+        #'(#%plain-app f arg ...)])]
+    [(_ f:expr arg:exprish ...)
+     #'(make-go-call f (list arg.datum ...))]))
 
 ;; --------------- composite lits / indexing / slices / assertions ---------------
 
@@ -258,7 +356,7 @@
   (go:ArrayType #:id (new-id!) #:lbrack #f #:len (and len (if (equal? (normalize-token-name len) go-token:ELLIPSIS) (go:Ellipsis #:id (new-id!) #:ellipsis #f #:elt #f) (->expr len))) #:elt (->expr elt)))
 
 (define (slice elt)      (go:ArrayType #:id (new-id!) #:lbrack #f #:len #f #:elt (->expr elt)))
-(define (map_ key value)  (go:MapType #:id (new-id!) #:map #f #:key (->expr key) #:value (->expr value)))
+(define (gorack-map key value)  (go:MapType #:id (new-id!) #:map #f #:key (->expr key) #:value (->expr value)))
 
 ;; runtime (constructor) — renamed to avoid clashing with macro
 ;; -------- compile-time helper for struct fields --------
@@ -383,7 +481,7 @@
       #`(go:Field #:id (new-id!) #:doc #f #:names '() #:type (->expr ty.datum) #:tag #f #:comment #f))))
 
 ;; -------- struct macro (expands to a go:StructType) --------
-(define-syntax (struct_ stx)
+(define-syntax (gorack-struct stx)
   (syntax-parse stx
     [(_ f:struct-field ...+)
      #'(go:StructType #:id (new-id!) #:struct #f #:fields (go:FieldList #:id (new-id!) #:opening #f #:list (list f.datum ...) #:closing #f) #:incomplete #f)]))
@@ -416,119 +514,127 @@
      #'(make-composite ty (list elt ...))]))
 
 
-; (define (composite ty elts)
-;   (go:CompositeLit
-;    (new-id!) (->expr ty) #f
-;    (for/list ([e elts])
-;      (cond [(go:KeyValueExpr? e) e]
-;            [(and (pair? e) (eq? (car e) 'kv)) (apply kv (cdr e))]
-;            [else (->expr e)]))
-;    #f #f))
-
-; (define (composite ty elts)
-;   (go:CompositeLit
-;    #f (->expr ty) #f
-;    (for/list ([e elts])
-;      (cond [(go:KeyValueExpr? e) e]
-;            [(and (pair? e) (eq? (car e) 'kv)) (apply kv (cdr e))]
-;            [else (->expr e)]))
-;    #f #f))
 
 
-  ;; --------------- operators ---------------
 
-(define (unary op x) (go:UnaryExpr #:id (new-id!) #:op-pos #f #:op op #:x (->expr x)))
-(define (binary op x y) (go:BinaryExpr #:id (new-id!) #:x (->expr x) #:op-pos #f #:op op #:y (->expr y)))
+;; --------------- operators ---------------
 
-;; Unary
-(define-syntax-rule (! x)  (unary go-token:NOT x))
-(define-syntax-rule (~ x)  (unary go-token:TILDE x)) ; for constraints
-(define-syntax-rule (u* x) (go:StarExpr #:id (new-id!) #:star #f #:x (->expr x)))
-(define-syntax-rule (u& x) (unary go-token:AND x))
-(define-syntax-rule (<- x) (unary go-token:ARROW x))
+(define (unary op x)
+  (go:UnaryExpr #:id (new-id!) #:op-pos #f #:op op #:x (->expr x)))
 
-;; Binary
-(define-syntax-rule (+ a b)   (binary go-token:ADD a b))
-(define-syntax-rule (- a b)   (binary go-token:SUB a b))
-(define-syntax-rule (* a b)   (binary go-token:MUL a b))
-(define-syntax-rule (/ a b)   (binary go-token:QUO a b))
-(define-syntax-rule (% a b)   (binary go-token:REM a b))
-(define-syntax-rule (+/ a b)   (binary go-token:OR a b))
-(define-syntax-rule (& a b)   (binary go-token:AND a b))
-(define-syntax-rule (^ a b)   (binary go-token:XOR a b))
-(define-syntax-rule (<< a b)  (binary go-token:SHL a b))
-(define-syntax-rule (>> a b)  (binary go-token:SHR a b))
-(define-syntax-rule (&^ a b)  (binary go-token:AND_NOT a b))
-(define-syntax-rule (== a b)  (binary go-token:EQL a b))
-(define-syntax-rule (!= a b)  (binary go-token:NEQ a b))
-(define-syntax-rule (< a b)   (binary go-token:LSS a b))
-(define-syntax-rule (<= a b)  (binary go-token:LEQ a b))
-(define-syntax-rule (> a b)   (binary go-token:GTR a b))
-(define-syntax-rule (>= a b)  (binary go-token:GEQ a b))
-(define-syntax-rule (&& a b)  (binary go-token:LAND a b))
-(define-syntax-rule (++/ a b)  (binary go-token:LOR a b))
+(define (binary op x y)
+  (go:BinaryExpr #:id (new-id!) #:x (->expr x) #:op-pos #f #:op op #:y (->expr y)))
 
-;; assignment: (assign := [lhs ...] [rhs ...]) or (assign += [lhs] [rhs])
-; (define (assign-token s)
-;   (case s
-;     [(::=) 'DEFINE] [(=) 'ASSIGN]
-;     [(+=) 'ADD_ASSIGN] [(-=) 'SUB_ASSIGN] [(*=) 'MUL_ASSIGN] [(/=) 'QUO_ASSIGN]
-;     [(%=) 'REM_ASSIGN] [(&=) 'AND_ASSIGN] [(OR=) 'OR_ASSIGN] [(^=) 'XOR_ASSIGN]
-;     [(<<=) 'SHL_ASSIGN] [(>>=) 'SHR_ASSIGN] [(&^=) 'AND_NOT_ASSIGN]
-;     [else (error 'assign "unknown assignment token ~a" s)]))
+(define (binary-chain op xs)
+  (unless (and (list? xs) (pair? xs) (pair? (cdr xs)))
+    (raise-arguments-error 'binary-chain "expected at least two operands" "operands" xs))
+  (for/fold ([acc (->expr (car xs))]) ([item (in-list (cdr xs))])
+    (go:BinaryExpr #:id (new-id!) #:x acc #:op-pos #f #:op op #:y (->expr item))))
 
-;; assignment: (assign := [lhs ...] [rhs ...]) etc.
-;; assignment: (assign := [lhs ...] [rhs ...]) etc.
-;; --- assign: accept single or list forms --------------------------------
-(define-syntax (assign stx)
+(define-syntax-rule (! x) (unary go-token:NOT (go-expr x)))
+(define-syntax-rule (~ x) (unary go-token:TILDE (go-expr x)))
+(define-syntax-rule (<- x) (unary go-token:ARROW (go-expr x)))
+
+(define-syntax (gorack-plus stx)
   (syntax-parse stx
-    ;; canonical list form (what you already support)
-    [(_ tok:id [lhs:expr ...] [rhs:expr ...])
-     (define tok-sym (syntax-e #'tok))
-     (define go-tok
-       (case tok-sym
-         [(:=)   'DEFINE]
-         [(=)    'ASSIGN]
-         [(+=)   'ADD_ASSIGN]
-         [(-=)   'SUB_ASSIGN]
-         [(*=)   'MUL_ASSIGN]
-         [(/=)   'QUO_ASSIGN]
-         [(%=)   'REM_ASSIGN]
-         [(&=)   'AND_ASSIGN]
-         [(OR=)  'OR_ASSIGN]
-         [(^=)   'XOR_ASSIGN]
-         [(<<=)  'SHL_ASSIGN]
-         [(>>=)  'SHR_ASSIGN]
-         [(&^=)  'AND_NOT_ASSIGN]
-         [else (raise-syntax-error 'assign "unknown assignment token" #'tok)]))
-     #`(go:AssignStmt #:id #f #:lhs (list (->expr lhs) ...) #:tok-pos #f #:tok '#,go-tok #:rhs (list (->expr rhs) ...))]
+    [(_ x:expr) #'(unary go-token:ADD (go-expr x))]
+    [(_ x:expr y:expr more:expr ...)
+     #'(binary-chain go-token:ADD (list (go-expr x) (go-expr y) (go-expr more) ...))]))
 
-    ;; NEW: single lhs / single rhs without brackets
-    [(_ tok:id lhs:expr rhs:expr)
-     #'(assign tok [lhs] [rhs])]))
-;; Generate macros like (:= x v) or (:= [x y] [v w]) that delegate to assign
-(define-syntax (define-assign-op stx)
+(define-syntax (gorack-minus stx)
   (syntax-parse stx
-    [(_ name:id)
-     #`(define-syntax (name stx)
-         (syntax-parse stx
-           ;; forward everything after the operator to (assign name ...)
-           [(_ . rest) #'(assign name . rest)]))]))
+    [(_ x:expr) #'(unary go-token:SUB (go-expr x))]
+    [(_ x:expr y:expr more:expr ...)
+     #'(binary-chain go-token:SUB (list (go-expr x) (go-expr y) (go-expr more) ...))]))
 
-;; Instantiate for all assignment tokens you support
-(define-assign-op :=)
-(define-assign-op =)
-(define-assign-op +=)
-(define-assign-op -=)
-(define-assign-op *=)
-(define-assign-op /=)
-(define-assign-op %=)
-(define-assign-op &=)
-(define-assign-op OR=)
-(define-assign-op ^=)
-(define-assign-op <<=)
-(define-assign-op >>=)
-(define-assign-op &^=)
+(define-syntax (gorack-times stx)
+  (syntax-parse stx
+    [(_ x:expr) #'(go:StarExpr #:id (new-id!) #:star #f #:x (->expr (go-expr x)))]
+    [(_ x:expr y:expr more:expr ...)
+     #'(binary-chain go-token:MUL (list (go-expr x) (go-expr y) (go-expr more) ...))]))
+
+(define-syntax (gorack-amp stx)
+  (syntax-parse stx
+    [(_ x:expr) #'(unary go-token:AND (go-expr x))]
+    [(_ x:expr y:expr more:expr ...)
+     #'(binary-chain go-token:AND (list (go-expr x) (go-expr y) (go-expr more) ...))]))
+
+(define-syntax-rule (/ x y more ...)
+  (binary-chain go-token:QUO (list (go-expr x) (go-expr y) (go-expr more) ...)))
+(define-syntax-rule (% x y more ...)
+  (binary-chain go-token:REM (list (go-expr x) (go-expr y) (go-expr more) ...)))
+(define-syntax-rule (bit-or x y more ...)
+  (binary-chain go-token:OR (list (go-expr x) (go-expr y) (go-expr more) ...)))
+(define-syntax-rule (xor x y more ...)
+  (binary-chain go-token:XOR (list (go-expr x) (go-expr y) (go-expr more) ...)))
+(define-syntax-rule (and-not x y more ...)
+  (binary-chain go-token:AND_NOT (list (go-expr x) (go-expr y) (go-expr more) ...)))
+(define-syntax-rule (<< x y) (binary go-token:SHL (go-expr x) (go-expr y)))
+(define-syntax-rule (>> x y) (binary go-token:SHR (go-expr x) (go-expr y)))
+(define-syntax-rule (== x y) (binary go-token:EQL (go-expr x) (go-expr y)))
+(define-syntax-rule (!= x y) (binary go-token:NEQ (go-expr x) (go-expr y)))
+(define-syntax-rule (< x y) (binary go-token:LSS (go-expr x) (go-expr y)))
+(define-syntax-rule (<= x y) (binary go-token:LEQ (go-expr x) (go-expr y)))
+(define-syntax-rule (> x y) (binary go-token:GTR (go-expr x) (go-expr y)))
+(define-syntax-rule (>= x y) (binary go-token:GEQ (go-expr x) (go-expr y)))
+(define-syntax-rule (gorack-and x y more ...)
+  (binary-chain go-token:LAND (list (go-expr x) (go-expr y) (go-expr more) ...)))
+(define-syntax-rule (gorack-or x y more ...)
+  (binary-chain go-token:LOR (list (go-expr x) (go-expr y) (go-expr more) ...)))
+
+;; Assignment operators are themselves the public heads. There is no public
+;; `assign` compatibility form.
+(define-syntax (make-assignment-form stx)
+  (syntax-parse stx
+    ;; Multiple left- and right-hand values.
+    [(_ token:id lhs-group rhs-group)
+     #:when (and (square-bracketed? #'lhs-group)
+                 (square-bracketed? #'rhs-group))
+     (syntax-parse #'(lhs-group rhs-group)
+       [((lhs:exprish ...+) (rhs:exprish ...+))
+        #`(go:AssignStmt #:id (new-id!)
+                         #:lhs (list (->expr lhs.datum) ...)
+                         #:tok-pos #f
+                         #:tok '#,(syntax-e #'token)
+                         #:rhs (list (->expr rhs.datum) ...))]
+       [_ (raise-syntax-error 'assignment
+                              "left- and right-hand groups must be non-empty"
+                              stx)])]
+    ;; Multiple targets receiving the single result of one expression, as in
+    ;; (:= [value ok] (<- channel)) or (:= [value err] (lookup key)).
+    [(_ token:id lhs-group rhs:exprish)
+     #:when (square-bracketed? #'lhs-group)
+     (syntax-parse #'lhs-group
+       [(lhs:exprish ...+)
+        #`(go:AssignStmt #:id (new-id!)
+                         #:lhs (list (->expr lhs.datum) ...)
+                         #:tok-pos #f
+                         #:tok '#,(syntax-e #'token)
+                         #:rhs (list (->expr rhs.datum)))]
+       [_ (raise-syntax-error 'assignment
+                              "left-hand group must be non-empty"
+                              #'lhs-group)])]
+    ;; Ordinary single-target assignment.
+    [(_ token:id lhs:exprish rhs:exprish)
+     #`(go:AssignStmt #:id (new-id!)
+                      #:lhs (list (->expr lhs.datum))
+                      #:tok-pos #f
+                      #:tok '#,(syntax-e #'token)
+                      #:rhs (list (->expr rhs.datum)))]))
+
+(define-syntax-rule (gorack-define args ...) (make-assignment-form DEFINE args ...))
+(define-syntax-rule (gorack-assign args ...) (make-assignment-form ASSIGN args ...))
+(define-syntax-rule (gorack-add-assign args ...) (make-assignment-form ADD_ASSIGN args ...))
+(define-syntax-rule (gorack-sub-assign args ...) (make-assignment-form SUB_ASSIGN args ...))
+(define-syntax-rule (gorack-mul-assign args ...) (make-assignment-form MUL_ASSIGN args ...))
+(define-syntax-rule (gorack-quo-assign args ...) (make-assignment-form QUO_ASSIGN args ...))
+(define-syntax-rule (gorack-rem-assign args ...) (make-assignment-form REM_ASSIGN args ...))
+(define-syntax-rule (gorack-and-assign args ...) (make-assignment-form AND_ASSIGN args ...))
+(define-syntax-rule (gorack-or-assign args ...) (make-assignment-form OR_ASSIGN args ...))
+(define-syntax-rule (gorack-xor-assign args ...) (make-assignment-form XOR_ASSIGN args ...))
+(define-syntax-rule (gorack-shl-assign args ...) (make-assignment-form SHL_ASSIGN args ...))
+(define-syntax-rule (gorack-shr-assign args ...) (make-assignment-form SHR_ASSIGN args ...))
+(define-syntax-rule (gorack-and-not-assign args ...) (make-assignment-form AND_NOT_ASSIGN args ...))
 
 ;; --------------- statements ----------------
 
@@ -538,83 +644,78 @@
 (define (block . body)
   (go:BlockStmt #:id (new-id!) #:lbrace #f #:list (map expr->stmt body) #:rbrace #f))
 
-; if_ : 
-;   (if_ cond then...)                               ; no else
-;   (if_ cond (begin then...) (begin else...))       ; explicit blocks
-;   (if_ cond (begin then...) else...)               ; else as trailing seq
-;; replace your current if_ with this
-(define-syntax (if_ stx)
+;; `if` optionally accepts a headed initializer: (if (init stmt) cond ...).
+(define-syntax (gorack-if stx)
   (syntax-parse stx
-    #:datum-literals (begin)
+    #:datum-literals (begin init)
+    ;; Initializer plus explicit multi-statement branches.
+    [(_ (init init-expr:expr) cond:expr (begin thn:expr ...) (begin els:expr ...))
+     #'(go:IfStmt #:id (new-id!) #:if #f #:init (expr->stmt init-expr) #:cond (->expr (go-expr cond)) #:body (block thn ...) #:else (block els ...))]
+    [(_ (init init-expr:expr) cond:expr (begin thn:expr ...) els:expr ...+)
+     #'(go:IfStmt #:id (new-id!) #:if #f #:init (expr->stmt init-expr) #:cond (->expr (go-expr cond)) #:body (block thn ...) #:else (block els ...))]
+    [(_ (init init-expr:expr) cond:expr (begin thn:expr ...))
+     #'(go:IfStmt #:id (new-id!) #:if #f #:init (expr->stmt init-expr) #:cond (->expr (go-expr cond)) #:body (block thn ...) #:else #f)]
+    [(_ (init init-expr:expr) cond:expr thn:expr els:expr)
+     #'(go:IfStmt #:id (new-id!) #:if #f #:init (expr->stmt init-expr) #:cond (->expr (go-expr cond)) #:body (block thn) #:else (block els))]
+    [(_ (init init-expr:expr) cond:expr thn:expr ...+)
+     #'(go:IfStmt #:id (new-id!) #:if #f #:init (expr->stmt init-expr) #:cond (->expr (go-expr cond)) #:body (block thn ...) #:else #f)]
 
-    ;; both branches explicitly wrapped
+    ;; Ordinary if forms.
     [(_ cond:expr (begin thn:expr ...) (begin els:expr ...))
-     #'(go:IfStmt #:id (new-id!) #:if #f #:init #f #:cond (->expr cond) #:body (block thn ...) #:else (block els ...))]
-
-    ;; then wrapped; else is a trailing sequence
-    [(_ cond:expr (begin thn:expr ...) els:expr ...)
-     #'(go:IfStmt #:id (new-id!) #:if #f #:init #f #:cond (->expr cond) #:body (block thn ...) #:else (block els ...))]
-
-    ;; NEW: single then + single else (no begin on either)
+     #'(go:IfStmt #:id (new-id!) #:if #f #:init #f #:cond (->expr (go-expr cond)) #:body (block thn ...) #:else (block els ...))]
+    [(_ cond:expr (begin thn:expr ...) els:expr ...+)
+     #'(go:IfStmt #:id (new-id!) #:if #f #:init #f #:cond (->expr (go-expr cond)) #:body (block thn ...) #:else (block els ...))]
+    [(_ cond:expr (begin thn:expr ...))
+     #'(go:IfStmt #:id (new-id!) #:if #f #:init #f #:cond (->expr (go-expr cond)) #:body (block thn ...) #:else #f)]
     [(_ cond:expr thn:expr els:expr)
-     #'(go:IfStmt #:id (new-id!) #:if #f #:init #f #:cond (->expr cond) #:body (block thn) #:else (block els))]
+     #'(go:IfStmt #:id (new-id!) #:if #f #:init #f #:cond (->expr (go-expr cond)) #:body (block thn) #:else (block els))]
+    [(_ cond:expr thn:expr ...+)
+     #'(go:IfStmt #:id (new-id!) #:if #f #:init #f #:cond (->expr (go-expr cond)) #:body (block thn ...) #:else #f)]))
 
-    ;; then-only form
-    [(_ cond:expr thn:expr ...)
-     #'(go:IfStmt #:id (new-id!) #:if #f #:init #f #:cond (->expr cond) #:body (block thn ...) #:else #f)]))
-
-;; Turn an expression-ish thing into a statement
-
-
-(define-syntax (for_ stx)
+(define-syntax (gorack-for stx)
   (syntax-parse stx
-    ;; for init; cond; post { body }
-    [(_ init:expr cond:expr post:expr body:expr ...+)
-     #'(go:ForStmt #:id (new-id!) #:for #f #:init (expr->stmt init) #:cond (->expr cond) #:post (expr->stmt post) #:body (block body ...))]
-
-    ;; for cond { body }
+    #:datum-literals (init post forever)
+    ;; Explicit clauses support any Go simple statement in init/post position.
+    [(_ (init init-expr:expr) cond:expr (post post-expr:expr) body:expr ...+)
+     #'(go:ForStmt #:id (new-id!) #:for #f #:init (expr->stmt init-expr) #:cond (->expr (go-expr cond)) #:post (expr->stmt post-expr) #:body (block body ...))]
+    ;; Compact three-part loops are accepted when init and post have known
+    ;; statement heads. This keeps condition loops with several body forms
+    ;; unambiguous.
+    [(_ init-expr:expr cond:expr post-expr:expr body:expr ...+)
+     #:when (and (for-simple-statement? #'init-expr)
+                 (for-simple-statement? #'post-expr))
+     #'(go:ForStmt #:id (new-id!) #:for #f #:init (expr->stmt init-expr) #:cond (->expr (go-expr cond)) #:post (expr->stmt post-expr) #:body (block body ...))]
+    ;; Explicit infinite loop.
+    [(_ (forever) body:expr ...+)
+     #'(go:ForStmt #:id (new-id!) #:for #f #:init #f #:cond #f #:post #f #:body (block body ...))]
+    ;; Condition-only loop, with any number of body statements.
     [(_ cond:expr body:expr ...+)
-     #'(go:ForStmt #:id (new-id!) #:for #f #:init #f #:cond (->expr cond) #:post #f #:body (block body ...))]
+     #'(go:ForStmt #:id (new-id!) #:for #f #:init #f #:cond (->expr (go-expr cond)) #:post #f #:body (block body ...))]))
 
-    ;; for { body }
-    [(_ body:expr ...+)
-     #'(go:ForStmt #:id (new-id!) #:for #f #:init #f #:cond #f #:post #f #:body (block body ...))]))
-
-;; for-range:
-;;   (for-range [k v] := x body...)
-;;   (for-range [k]   := x body...)
-;;   (for-range []    := x body...)
+;; Range bindings are headed assignments: (for-range (:= [k v] xs) body ...).
 (define-syntax (for-range stx)
+  (define (range-token op-stx)
+    (case (syntax-e op-stx)
+      [(:=) 'DEFINE]
+      [(=) 'ASSIGN]
+      [else (raise-syntax-error 'for-range "expected := or =" op-stx)]))
   (syntax-parse stx
-    [(_ tok:id [k:id v:id] x:expr body:expr ...+)
-     (define tok-s (syntax-e #'tok))
-     (define go-tok
-       (case tok-s
-         [(:=) 'DEFINE]
-         [(=)  'ASSIGN]
-         [else (raise-syntax-error 'for-range "expected := or =" #'tok)]))
-     #`(let-syntax ([k (λ (_stx) #'(->ident* 'k))]
-                    [v (λ (_stx) #'(->ident* 'v))])
-         (go:RangeStmt #:id (new-id!) #:for #f #:key (->ident* 'k) #:value (->ident* 'v) #:tok-pos #f #:tok '#,go-tok #:range #f #:x (->expr x) #:body (block body ...)))]
-
-    [(_ tok:id [k:id] x:expr body:expr ...+)
-     (define tok-s (syntax-e #'tok))
-     (define go-tok
-       (case tok-s
-         [(:=) 'DEFINE]
-         [(=)  'ASSIGN]
-         [else (raise-syntax-error 'for-range "expected := or =" #'tok)]))
-     #`(let-syntax ([k (λ (_stx) #'(->ident* 'k))])
-         (go:RangeStmt #:id (new-id!) #:for #f #:key (->ident* 'k) #:value #f #:tok-pos #f #:tok '#,go-tok #:range #f #:x (->expr x) #:body (block body ...)))]
-
-    [(_ tok:id [] x:expr body:expr ...+)
-     (define tok-s (syntax-e #'tok))
-     (define go-tok
-       (case tok-s
-         [(:=) 'DEFINE]
-         [(=)  'ASSIGN]
-         [else (raise-syntax-error 'for-range "expected := or =" #'tok)]))
-     #`(go:RangeStmt #:id (new-id!) #:for #f #:key #f #:value #f #:tok-pos #f #:tok '#,go-tok #:range #f #:x (->expr x) #:body (block body ...))]))
+    [(_ (op:id binding x:expr) body:expr ...+)
+     #:when (and (memq (syntax-e #'op) '(:= =))
+                 (square-bracketed? #'binding))
+     (syntax-parse #'binding
+       [(k:id v:id)
+        (define tok (range-token #'op))
+        #`(go:RangeStmt #:id (new-id!) #:for #f #:key (->ident* 'k) #:value (->ident* 'v) #:tok-pos #f #:tok '#,tok #:range #f #:x (->expr (go-expr x)) #:body (block body ...))]
+       [(k:id)
+        (define tok (range-token #'op))
+        #`(go:RangeStmt #:id (new-id!) #:for #f #:key (->ident* 'k) #:value #f #:tok-pos #f #:tok '#,tok #:range #f #:x (->expr (go-expr x)) #:body (block body ...))]
+       [()
+        (define tok (range-token #'op))
+        #`(go:RangeStmt #:id (new-id!) #:for #f #:key #f #:value #f #:tok-pos #f #:tok '#,tok #:range #f #:x (->expr (go-expr x)) #:body (block body ...))]
+       [_ (raise-syntax-error 'for-range "expected [], [value], or [key value]" #'binding)])]
+    [(_ x:expr body:expr ...+)
+     #'(go:RangeStmt #:id (new-id!) #:for #f #:key #f #:value #f #:tok-pos #f #:tok go-token:ILLEGAL #:range #f #:x (->expr (go-expr x)) #:body (block body ...))]))
 
 ;; --- helpers for switch -------------------------------------------------
 ;; ---------------- helpers ----------------
@@ -622,10 +723,11 @@
   ;; one or many case expressions
   (define-syntax-class case-exprs
     #:attributes (vals)
-    ;; many with brackets: (case [e1 e2 ...] ...)
-    (pattern [es:exprish ...+]
+    ;; Multiple case values are grouped with square brackets. Parenthesized
+    ;; expressions remain single expressions, so (case (f x) ...) is safe.
+    (pattern (~and whole (es:exprish ...+))
+      #:when (square-bracketed? #'whole)
       #:with vals #'(list (->expr es.datum) ...))
-    ;; single value/expression: (case e ...)
     (pattern e:exprish
       #:with vals #'(list (->expr e.datum))))
 
@@ -639,7 +741,7 @@
     ;; default clause
     (pattern (default body:expr ...+)
       #:with node
-      #'(go:CaseClause #:id (new-id!) #:case #f #:list '() #:colon #f #:body (list (expr->stmt body) ...))))
+      #'(go:CaseClause #:id (new-id!) #:case #f #:list #f #:colon #f #:body (list (expr->stmt body) ...))))
 
   ;; Nice error if someone writes bare [2 3] without `case`
   (define (ensure-clause c)
@@ -656,19 +758,21 @@
 
 (define-syntax (switch stx)
   (syntax-parse stx
-    #:datum-literals (case default)
-    ;; no-tag
-    [(_ first:switch-clause rest:switch-clause ...+)
+    #:datum-literals (case default init)
+    [(_ (init init-expr:expr) first:switch-clause rest:switch-clause ...)
+     #'(go:SwitchStmt #:id (new-id!) #:switch #f #:init (expr->stmt init-expr) #:tag #f #:body (go:BlockStmt #:id (new-id!) #:lbrace #f #:list (list first.node rest.node ...) #:rbrace #f))]
+    [(_ (init init-expr:expr) tag:expr cl:switch-clause ...+)
+     #'(go:SwitchStmt #:id (new-id!) #:switch #f #:init (expr->stmt init-expr) #:tag (->expr (go-expr tag)) #:body (go:BlockStmt #:id (new-id!) #:lbrace #f #:list (list cl.node ...) #:rbrace #f))]
+    [(_ first:switch-clause rest:switch-clause ...)
      #'(go:SwitchStmt #:id (new-id!) #:switch #f #:init #f #:tag #f #:body (go:BlockStmt #:id (new-id!) #:lbrace #f #:list (list first.node rest.node ...) #:rbrace #f))]
-    ;; tagged
     [(_ tag:expr cl:switch-clause ...+)
-     #'(go:SwitchStmt #:id (new-id!) #:switch #f #:init #f #:tag (->expr tag) #:body (go:BlockStmt #:id (new-id!) #:lbrace #f #:list (list cl.node ...) #:rbrace #f))]
-    ;; catch mistakes early
+     #'(go:SwitchStmt #:id (new-id!) #:switch #f #:init #f #:tag (->expr (go-expr tag)) #:body (go:BlockStmt #:id (new-id!) #:lbrace #f #:list (list cl.node ...) #:rbrace #f))]
     [(_ raw ...+)
-     (begin (for ([c (in-list (syntax->list #'(raw ...)))]) (ensure-clause c))
-            (raise-syntax-error 'switch
-              "could not parse; expected (switch [tag-expr] (case ...) ...)"
-              #'(raw ...)))]))
+     (begin
+       (for ([c (in-list (syntax->list #'(raw ...)))]) (ensure-clause c))
+       (raise-syntax-error 'switch
+                           "expected (switch [(init stmt)] [tag] (case ...) ...)"
+                           #'(raw ...)))]))
 
 ;; channel: dir is 'SEND|'RECV|both (default both)
 ;; channel type: chan T, chan<- T, <-chan T
@@ -696,28 +800,9 @@
     [(_ alias:id path:string)
      #`(go:ImportSpec #:id (new-id!) #:doc #f #:name (->ident* '#,(syntax-e #'alias)) #:path (go:BasicLit #:id (new-id!) #:value-pos #f #:kind 'STRING #:value (go-string #,(syntax-e #'path))) #:comment #f #:end-pos #f)]))
 
-; (define-syntax (import stx)
-;   (syntax-parse stx
-;     [(_ path:string)
-;      #'(go:ImportSpec (new-id!) #f #f
-;                        (go:BasicLit (new-id!) #f 'STRING (go-string path)) #f #f)]
 
-;     ;; blank import: (import _ "pkg")
-;     [(_ alias:id path:string)
-;      #:when (eq? (syntax-e #'alias) '_)
-;      #'(go:ImportSpec (new-id!) #f (->ident* "_")
-;                        (go:BasicLit (new-id!) #f 'STRING (go-string path)) #f #f)]
 
-;     ;; dot import: (import dot "pkg")
-;     [(_ alias:id path:string)
-;      #:when (eq? (syntax-e #'alias) 'dot)
-;      #'(go:ImportSpec (new-id!) #f (->ident* ".")
-;                        (go:BasicLit (new-id!) #f 'STRING (go-string path)) #f #f)]
 
-;     ;; named import: (import Printf "fmt")
-;     [(_ alias:id path:string)
-;      #`(go:ImportSpec (new-id!) #f (->ident* '#,(syntax-e #'alias))
-;                        (go:BasicLit (new-id!) #f 'STRING (go-string path)) #f #f)]))
 
 (define-syntax (package stx)
   (syntax-parse stx
@@ -741,12 +826,10 @@
     (and (racket:> (length specs) 1) (ast-position "generated" 0)))
   (go:GenDecl #:id (new-id!) #:doc #f #:tok-pos #f #:tok token #:lparen grouping-position #:specs specs #:rparen grouping-position))
 
-;; var:
-;;   (var (decl ...))                          ; already-built specs
-;;   (var x T)                                 ; single name/type
-;;   (var x T := v)                            ; single name/type + init
-;;   (var [x T] [y T] ...)                     ; many, each with its own type
-;;   (var [x T] [y U] ... := v w ...)          ; many names, shared init exprs (no explicit type)
+;; var declarations:
+;;   (var x T)
+;;   (var [x T] [y U] ...)
+;;   (var #:specs spec ...)
 (define-syntax (var stx)
   (syntax-parse stx
     ;; many: (var [x T] [y U] ...)
@@ -844,7 +927,7 @@
 
 (define-syntax (type-alias stx)
   (syntax-parse stx
-    [(_ name:id = ty:expr)
+    [(_ name:id ty:expr)
      #'(mk-gen-decl go-token:TYPE (list (mk-typedecl 'name #t ty)))]))
 
 
@@ -868,143 +951,85 @@
 ;; ---------- compile-time helpers ----------
 
 
-;; defn — switch to p.datum
+;; Functions and methods use one headed signature form.
 (define-syntax (defn stx)
   (syntax-parse stx
-    #:datum-literals (->)
-
-    ;; method, WITH results  (try first)
-    [(_ (rname:id rty:expr) name:id (p:param-pair ...) -> (ret:expr ...) body:expr ...+)
-     #`(let* ([recv (go:FieldList #:id (new-id!) #:opening #f #:list (list (go:Field #:id (new-id!) #:doc #f #:names (list (->ident* 'rname)) #:type (->expr rty) #:tag #f #:comment #f)) #:closing #f)]
-              [ft   (go:FuncType #:id (new-id!) #:func #f #:type-params #f #:params (params->fieldlist (list p.datum ...)) #:results (results->fieldlist (list ret ...)))]
-              [blk  (go:BlockStmt #:id (new-id!) #:lbrace #f #:list (map expr->stmt (list body ...)) #:rbrace #f)])
-         (go:FuncDecl #:id (new-id!) #:doc #f #:recv recv #:name (->ident* 'name) #:type ft #:body blk))]
-
-    ;; plain function, WITH results  (try second)
-    [(_ name:id (p:param-pair ...) -> (ret:expr ...) body:expr ...+)
-     #`(let* ([ft  (go:FuncType #:id (new-id!) #:func #f #:type-params #f #:params (params->fieldlist (list p.datum ...)) #:results (results->fieldlist (list ret ...)))]
+    [(_ (rname:id rty:typeish) name:id sig:go-signature body:expr ...+)
+     #`(let* ([recv (go:FieldList #:id (new-id!) #:opening #f #:list (list (go:Field #:id (new-id!) #:doc #f #:names (list (->ident* 'rname)) #:type (->expr rty.datum) #:tag #f #:comment #f)) #:closing #f)]
+              [ft (go:FuncType #:id (new-id!) #:func #f #:type-params #f #:params (params->fieldlist sig.params) #:results (results->fieldlist sig.results))]
               [blk (go:BlockStmt #:id (new-id!) #:lbrace #f #:list (map expr->stmt (list body ...)) #:rbrace #f)])
-         (go:FuncDecl #:id (new-id!) #:doc #f #:recv #f #:name (->ident* 'name) #:type ft #:body blk))]
-
-    ;; method, NO results
-    [(_ (rname:id rty:expr) name:id (p:param-pair ...) body:expr ...+)
-     #`(let* ([recv (go:FieldList #:id (new-id!) #:opening #f #:list (list (go:Field #:id (new-id!) #:doc #f #:names (list (->ident* 'rname)) #:type (->expr rty) #:tag #f #:comment #f)) #:closing #f)]
-              [ft   (go:FuncType #:id (new-id!) #:func #f #:type-params #f #:params (params->fieldlist (list p.datum ...)) #:results #f)]
-              [blk  (go:BlockStmt #:id (new-id!) #:lbrace #f #:list (map expr->stmt (list body ...)) #:rbrace #f)])
          (go:FuncDecl #:id (new-id!) #:doc #f #:recv recv #:name (->ident* 'name) #:type ft #:body blk))]
-
-    ;; plain function, NO results
-    [(_ name:id (p:param-pair ...) body:expr ...+)
-     #`(let* ([ft  (go:FuncType #:id (new-id!) #:func #f #:type-params #f #:params (params->fieldlist (list p.datum ...)) #:results #f)]
+    [(_ name:id sig:go-signature body:expr ...+)
+     #`(let* ([ft (go:FuncType #:id (new-id!) #:func #f #:type-params #f #:params (params->fieldlist sig.params) #:results (results->fieldlist sig.results))]
               [blk (go:BlockStmt #:id (new-id!) #:lbrace #f #:list (map expr->stmt (list body ...)) #:rbrace #f)])
          (go:FuncDecl #:id (new-id!) #:doc #f #:recv #f #:name (->ident* 'name) #:type ft #:body blk))]))
 
-;; method/embed sugar that returns *data* for (interface ...)
-(define-syntax (method stx)
-  (syntax-parse stx
-    #:datum-literals (->)
-    [(_ nm:id (p:param-pair ...) -> (r:result-item ...))
-     #'(list 'method 'nm (list p.datum ...) '-> (list r.datum ...))]
-    [(_ nm:id (p:param-pair ...))
-     #'(list 'method 'nm (list p.datum ...) '-> (list))]))
-
-(define-syntax (embed stx)
-  (syntax-parse stx
-    [(_ ty:expr) #'(list 'embed ty)]))
 (define-syntax-rule (ptr T) (go:StarExpr #:id (new-id!) #:star #f #:x (->expr T)))
 ;; the above rule is used for pointer receivers
 
-;; ---------- interface (macro) ----------
-;; Put this near your other macros (after param-pair/result-item are defined)
-
+;; ---------- interface ----------
 (begin-for-syntax
-  ;; Turn interface items into go:Field construction
   (define-syntax-class iface-elem
     #:attributes (field)
     #:datum-literals (method embed ->)
-
-    ;; method with results
-    (pattern (method nm:id (p:param-pair ...) -> (r:result-item ...))
+    (pattern (method nm:id sig:go-signature)
       #:with field
-      #`(go:Field #:id (new-id!) #:doc #f #:names (list (->ident* 'nm)) #:type (go:FuncType #:id (new-id!) #:func #f #:type-params #f #:params (params->fieldlist (list p.datum ...)) #:results (results->fieldlist (list r.datum ...))) #:tag #f #:comment #f))
-
-    ;; method with NO results
-    (pattern (method nm:id (p:param-pair ...))
-      #:with field
-      #`(go:Field #:id (new-id!) #:doc #f #:names (list (->ident* 'nm)) #:type (go:FuncType #:id (new-id!) #:func #f #:type-params #f #:params (params->fieldlist (list p.datum ...)) #:results #f) #:tag #f #:comment #f))
-
-    ;; embed form
+      #`(go:Field #:id (new-id!) #:doc #f #:names (list (->ident* 'nm)) #:type (go:FuncType #:id (new-id!) #:func #f #:type-params #f #:params (params->fieldlist sig.params) #:results (results->fieldlist sig.results)) #:tag #f #:comment #f))
     (pattern (embed ty:expr)
       #:with field
-      #`(go:Field #:id (new-id!) #:doc #f #:names '() #:type (->expr ty) #:tag #f #:comment #f))
-
-    ;; bare type (shorthand for embed)
+      #'(go:Field #:id (new-id!) #:doc #f #:names '() #:type (->expr ty) #:tag #f #:comment #f))
     (pattern ty:expr
       #:with field
-      #`(go:Field #:id (new-id!) #:doc #f #:names '() #:type (->expr ty) #:tag #f #:comment #f))))
+      #'(go:Field #:id (new-id!) #:doc #f #:names '() #:type (->expr ty) #:tag #f #:comment #f))))
 
-(define-syntax (interface_ stx)
+(define-syntax (gorack-interface stx)
   (syntax-parse stx
     [(_ elem:iface-elem ...+)
-     #`(go:InterfaceType #:id (new-id!) #:interface #f #:methods (go:FieldList #:id (new-id!) #:opening #f #:list (list elem.field ...) #:closing #f) #:incomplete #f)]))
+     #'(go:InterfaceType #:id (new-id!) #:interface #f #:methods (go:FieldList #:id (new-id!) #:opening #f #:list (list elem.field ...) #:closing #f) #:incomplete #f)]))
 
 
-(define (break)    (go:BranchStmt #:id (new-id!) #:tok-pos #f #:tok go-token:BREAK #:label #f))
-(define (continue) (go:BranchStmt #:id (new-id!) #:tok-pos #f #:tok go-token:CONTINUE #:label #f))
-
-
-;; --- go / defer ---
-;; replace the earlier versions with these
-
-(define-syntax (go_ stx)
+(define-syntax (gorack-break stx)
   (syntax-parse stx
-    [(_ e:expr) #'(go:GoStmt #:id (new-id!) #:go #f #:call (->expr e))]))
+    [(_) #'(go:BranchStmt #:id (new-id!) #:tok-pos #f #:tok go-token:BREAK #:label #f)]
+    [(_ name:id) #'(go:BranchStmt #:id (new-id!) #:tok-pos #f #:tok go-token:BREAK #:label (->ident* 'name))]))
 
-(define-syntax (defer_ stx)
+(define-syntax (gorack-continue stx)
   (syntax-parse stx
-    [(_ e:expr) #'(go:DeferStmt #:id (new-id!) #:defer #f #:call (->expr e))]))
+    [(_) #'(go:BranchStmt #:id (new-id!) #:tok-pos #f #:tok go-token:CONTINUE #:label #f)]
+    [(_ name:id) #'(go:BranchStmt #:id (new-id!) #:tok-pos #f #:tok go-token:CONTINUE #:label (->ident* 'name))]))
 
-;; --- send statement: ch <- v ---
+(define-syntax (gorack-go stx)
+  (syntax-parse stx
+    [(_ e:expr) #'(go:GoStmt #:id (new-id!) #:go #f #:call (->expr (go-expr e)))]))
+
+(define-syntax (gorack-defer stx)
+  (syntax-parse stx
+    [(_ e:expr) #'(go:DeferStmt #:id (new-id!) #:defer #f #:call (->expr (go-expr e)))]))
+
 (define-syntax (send stx)
   (syntax-parse stx
-    [(_ ch:expr v:expr) #'(go:SendStmt #:id (new-id!) #:chan (->expr ch) #:arrow #f #:value (->expr v))]))
+    [(_ ch:expr v:expr) #'(go:SendStmt #:id (new-id!) #:chan (->expr (go-expr ch)) #:arrow #f #:value (->expr (go-expr v)))]))
 
-;; --- ++ / -- ---
 (define-syntax (inc stx)
   (syntax-parse stx
-    [(_ x:expr) #'(go:IncDecStmt #:id (new-id!) #:x (->expr x) #:tok-pos #f #:tok go-token:INC)]))
+    [(_ x:expr) #'(go:IncDecStmt #:id (new-id!) #:x (->expr (go-expr x)) #:tok-pos #f #:tok go-token:INC)]))
 
 (define-syntax (dec stx)
   (syntax-parse stx
-    [(_ x:expr) #'(go:IncDecStmt #:id (new-id!) #:x (->expr x) #:tok-pos #f #:tok go-token:DEC)]))
+    [(_ x:expr) #'(go:IncDecStmt #:id (new-id!) #:x (->expr (go-expr x)) #:tok-pos #f #:tok go-token:DEC)]))
 
-;; --- labels, break/continue with optional label, and goto ---
 (define-syntax (label stx)
   (syntax-parse stx
     [(_ name:id body:expr)
      #'(go:LabeledStmt #:id (new-id!) #:label (->ident* 'name) #:colon #f #:stmt (expr->stmt body))]))
 
-(define-syntax (break* stx)
-  (syntax-parse stx
-    [(_ )        #'(go:BranchStmt #:id (new-id!) #:tok-pos #f #:tok go-token:BREAK #:label #f)]
-    [(_ name:id) #'(go:BranchStmt #:id (new-id!) #:tok-pos #f #:tok go-token:BREAK #:label (->ident* 'name))]))
-
-(define-syntax (continue* stx)
-  (syntax-parse stx
-    [(_ )        #'(go:BranchStmt #:id (new-id!) #:tok-pos #f #:tok go-token:CONTINUE #:label #f)]
-    [(_ name:id) #'(go:BranchStmt #:id (new-id!) #:tok-pos #f #:tok go-token:CONTINUE #:label (->ident* 'name))]))
-
 (define-syntax (goto stx)
   (syntax-parse stx
     [(_ name:id) #'(go:BranchStmt #:id (new-id!) #:tok-pos #f #:tok go-token:GOTO #:label (->ident* 'name))]))
 
-; ------------- End UNIT 3 ------------------
-
-;; --- fallthrough (for switch cases) ---
 (define-syntax (fallthrough stx)
   (syntax-parse stx
-    [(_)
-     #'(go:BranchStmt #:id (new-id!) #:tok-pos #f #:tok go-token:FALLTHROUGH #:label #f)]))
+    [(_) #'(go:BranchStmt #:id (new-id!) #:tok-pos #f #:tok go-token:FALLTHROUGH #:label #f)]))
 
 ;; --- decl: wrap a GenDecl as a statement so it can appear inside blocks ---
 ;; use only with (var ...)/(const ...)/(type ...) etc.
@@ -1012,221 +1037,99 @@
   (syntax-parse stx
     [(_ g:expr) #'(go:DeclStmt #:id (new-id!) #:decl g)]))
 
-;; --- select ---
-;;   (select
-;;     (case (send ch v)           body ...+)
-;;     (case (recv [x] := ch)      body ...+)
-;;     (case (recv ch)             body ...+) ; discard recv value
-;;     (default                    body ...+))
+;; Select communication clauses use ordinary headed send, receive, and
+;; assignment forms.
 (define-syntax (select stx)
-  (define (tok->sym s)
-    (case s [(:=) 'DEFINE] [(=) 'ASSIGN]
-          [else (raise-syntax-error 'select "expected := or =" #f)]))
+  (define (receive-assignment-token op-stx)
+    (case (syntax-e op-stx)
+      [(:=) 'DEFINE]
+      [(=) 'ASSIGN]
+      [else (raise-syntax-error 'select "expected := or =" op-stx)]))
   (syntax-parse stx
-    #:datum-literals (case default recv send := =)
-
+    #:datum-literals (case default send <-)
     [(_ raw-clause ...+)
      (define clauses
-       (for/list ([c (in-list (syntax->list #'(raw-clause ...)))])
-         (syntax-parse c
-           ;; send: case ch <- v
-           [(case (send ch:expr v:expr) body:expr ...+)
-            #`(go:CommClause #:id (new-id!) #:case #f #:comm (go:SendStmt #:id (new-id!) #:chan (->expr ch) #:arrow #f #:value (->expr v)) #:colon #f #:body (list (expr->stmt body) ...))]
-
-           ;; recv with assign: case [x] := ch   or   [x] = ch
-           [(case (recv [x:id] tok:id ch:expr) body:expr ...+)
-            #`(go:CommClause #:id (new-id!) #:case #f #:comm (go:AssignStmt #:id (new-id!)
-                               #:lhs (list (->ident* 'x))
-                               #:tok-pos #f
-                               #:tok '#,(tok->sym (syntax-e #'tok))
-                               #:rhs (list (unary go-token:ARROW ch))) #:colon #f #:body (list (expr->stmt body) ...))]
-
-           ;; recv, discard value: case (recv ch)
-           [(case (recv ch:expr) body:expr ...+)
-            #`(go:CommClause #:id (new-id!) #:case #f #:comm (go:ExprStmt #:id (new-id!) #:x (unary go-token:ARROW ch)) #:colon #f #:body (list (expr->stmt body) ...))]
-            ;; inside your existing (select ...) transformer, add this clause:
-            [(case (recv [x:id ok:id] tok:id ch:expr) body ...+)
-            #`(go:CommClause #:id (new-id!) #:case #f #:comm (go:AssignStmt #:id (new-id!)
-                                #:lhs (list (->ident* 'x) (->ident* 'ok))
-                                #:tok-pos #f
-                                #:tok '#,(tok->sym (syntax-e #'tok))
-                                #:rhs (list (unary go-token:ARROW ch))) #:colon #f #:body (list (expr->stmt body) ...))]
-
-           ;; default
+       (for/list ([clause (in-list (syntax->list #'(raw-clause ...)))])
+         (syntax-parse clause
+           #:datum-literals (case default send <-)
+           [(case (send ch:expr value:expr) body:expr ...+)
+            #'(go:CommClause #:id (new-id!) #:case #f #:comm (go:SendStmt #:id (new-id!) #:chan (->expr (go-expr ch)) #:arrow #f #:value (->expr (go-expr value))) #:colon #f #:body (list (expr->stmt body) ...))]
+           [(case (<- ch:expr) body:expr ...+)
+            #'(go:CommClause #:id (new-id!) #:case #f #:comm (go:ExprStmt #:id (new-id!) #:x (unary go-token:ARROW (go-expr ch))) #:colon #f #:body (list (expr->stmt body) ...))]
+           [(case (op:id x:id (<- ch:expr)) body:expr ...+)
+            (define tok (receive-assignment-token #'op))
+            #`(go:CommClause #:id (new-id!) #:case #f #:comm (go:AssignStmt #:id (new-id!) #:lhs (list (->ident* 'x)) #:tok-pos #f #:tok '#,tok #:rhs (list (unary go-token:ARROW (go-expr ch)))) #:colon #f #:body (list (expr->stmt body) ...))]
+           [(case (op:id binding (<- ch:expr)) body:expr ...+)
+            #:when (square-bracketed? #'binding)
+            (syntax-parse #'binding
+              [(x:id ok:id)
+               (define tok (receive-assignment-token #'op))
+               #`(go:CommClause #:id (new-id!) #:case #f #:comm (go:AssignStmt #:id (new-id!) #:lhs (list (->ident* 'x) (->ident* 'ok)) #:tok-pos #f #:tok '#,tok #:rhs (list (unary go-token:ARROW (go-expr ch)))) #:colon #f #:body (list (expr->stmt body) ...))]
+              [_ (raise-syntax-error 'select "receive binding must be [value ok]" #'binding)])]
            [(default body:expr ...+)
             #'(go:CommClause #:id (new-id!) #:case #f #:comm #f #:colon #f #:body (list (expr->stmt body) ...))])))
+     (with-syntax ([(clause-node ...) clauses])
+       #'(go:SelectStmt #:id (new-id!) #:select #f #:body (go:BlockStmt #:id (new-id!) #:lbrace #f #:list (list clause-node ...) #:rbrace #f)))]))
 
-     (with-syntax ([(cl ...) clauses])
-       #'(go:SelectStmt #:id (new-id!) #:select #f #:body (go:BlockStmt #:id (new-id!) #:lbrace #f #:list (list cl ...) #:rbrace #f)))]))
-; ------------------------------------------
-
-
-;; ========= if with init =========
-(define-syntax (if* stx)
-  (syntax-parse stx
-    #:datum-literals (begin)
-
-    ;; init; cond; then {..} else {..}
-    [(_ init:expr cond:expr (begin thn:expr ...) (begin els:expr ...))
-     #'(go:IfStmt #:id (new-id!) #:if #f #:init (expr->stmt init) #:cond (->expr cond) #:body (block thn ...) #:else (block els ...))]
-
-    ;; init; cond; then {..} else ... (as trailing seq)
-    [(_ init:expr cond:expr (begin thn:expr ...) els:expr ...)
-     #'(go:IfStmt #:id (new-id!) #:if #f #:init (expr->stmt init) #:cond (->expr cond) #:body (block thn ...) #:else (block els ...))]
-
-    ;; init; cond; then-only
-    [(_ init:expr cond:expr thn:expr ...)
-     #'(go:IfStmt #:id (new-id!) #:if #f #:init (expr->stmt init) #:cond (->expr cond) #:body (block thn ...) #:else #f)]))
-
-
-(define-syntax (switch* stx)
-  (syntax-parse stx
-    #:datum-literals (case default)
-
-    ;; init + tag
-    [(_ init:expr tag:expr raw-clause ...+)
-     (define case-asts
-       (for/list ([c (in-list (syntax->list #'(raw-clause ...)))])
-         (syntax-parse c
-           [(case (es:exprish ...) body:expr ...+)
-            #'(go:CaseClause #:id (new-id!) #:case #f #:list (list (->expr es.datum) ...) #:colon #f #:body (list (expr->stmt body) ...))]
-           [(default body:expr ...+)
-            #'(go:CaseClause #:id (new-id!) #:case #f #:list '() #:colon #f #:body (list (expr->stmt body) ...))])))
-     (with-syntax ([(cl ...) case-asts])
-       #'(go:SwitchStmt #:id (new-id!) #:switch #f #:init (expr->stmt init) #:tag (->expr tag) #:body (go:BlockStmt #:id (new-id!) #:lbrace #f #:list (list cl ...) #:rbrace #f)))]
-
-    ;; init only (no tag)
-    [(_ init:expr raw-clause ...+)
-     (define case-asts
-       (for/list ([c (in-list (syntax->list #'(raw-clause ...)))])
-         (syntax-parse c
-           [(case (es:exprish ...) body:expr ...+)
-            #'(go:CaseClause #:id (new-id!) #:case #f #:list (list (->expr es.datum) ...) #:colon #f #:body (list (expr->stmt body) ...))]
-           [(default body:expr ...+)
-            #'(go:CaseClause #:id (new-id!) #:case #f #:list '() #:colon #f #:body (list (expr->stmt body) ...))])))
-     (with-syntax ([(cl ...) case-asts])
-       #'(go:SwitchStmt #:id (new-id!) #:switch #f #:init (expr->stmt init) #:tag #f #:body (go:BlockStmt #:id (new-id!) #:lbrace #f #:list (list cl ...) #:rbrace #f)))]))
-
-;; ========= switch with init (switch*) =========
-; (define-syntax (switch* stx)
-;   (syntax-parse stx
-;     #:datum-literals (case default)
-
-;     ;; init + tag
-;     [(_ init:expr tag:expr raw-clause ...+)
-;      (define case-asts
-;        (for/list ([c (in-list (syntax->list #'(raw-clause ...)))])
-;          (syntax-parse c
-;            [(case (es:expr ...) body:expr ...+)
-;             #'(go:CaseClause (new-id!) #f
-;                               (list (->expr es) ...)
-;                               #f
-;                               (list (expr->stmt body) ...))]
-;            [(default body:expr ...+)
-;             #'(go:CaseClause (new-id!) #f
-;                               '()
-;                               #f
-;                               (list (expr->stmt body) ...))])))
-;      (with-syntax ([(cl ...) case-asts])
-;        #'(go:SwitchStmt (new-id!) #f (expr->stmt init) (->expr tag)
-;            (go:BlockStmt (new-id!) #f (list cl ...) #f)))]
-
-;     ;; init only (no tag)
-;     [(_ init:expr raw-clause ...+)
-;      (define case-asts
-;        (for/list ([c (in-list (syntax->list #'(raw-clause ...)))])
-;          (syntax-parse c
-;            [(case (es:expr ...) body:expr ...+)
-;             #'(go:CaseClause (new-id!) #f
-;                               (list (->expr es) ...)
-;                               #f
-;                               (list (expr->stmt body) ...))]
-;            [(default body:expr ...+)
-;             #'(go:CaseClause (new-id!) #f
-;                               '()
-;                               #f
-;                               (list (expr->stmt body) ...))])))
-;      (with-syntax ([(cl ...) case-asts])
-;        #'(go:SwitchStmt (new-id!) #f (expr->stmt init) #f
-;            (go:BlockStmt (new-id!) #f (list cl ...) #f)))]))
-
-
-; ;; helper: build the guard stmt
-; (define-for-syntax (ts-guard id tok expr-stx)
-;   (define rhs #`(go:TypeAssertExpr #f (->expr #,expr-stx) #f #f))
-;   (cond
-;     [id   #`(go:AssignStmt #f (list (->ident* '#,id)) #f '#,tok (list #,rhs))]
-;     [else #`(go:ExprStmt #f #,rhs)]))
-
-;; helper: build the guard stmt
-;; helper: 5-arg go:TypeAssertExpr, produce either Assign or Expr guard
+;; Build the type-switch guard as either an assignment or expression.
 (define-for-syntax (ts-guard id tok subject-stx)
   (define rhs
-    #`(go:TypeAssertExpr #:id (new-id!) #:x (->expr #,subject-stx) #:lparen #f #:type #f #:rparen #f))
+    #`(go:TypeAssertExpr #:id (new-id!) #:x (->expr (go-expr #,subject-stx)) #:lparen #f #:type #f #:rparen #f))
   (cond
     [id   #`(go:AssignStmt #:id (new-id!) #:lhs (list (->ident* '#,id)) #:tok-pos #f #:tok '#,tok #:rhs (list #,rhs))]
     [else #`(go:ExprStmt #:id (new-id!) #:x #,rhs)]))
 
 (define-syntax (type-switch stx)
-  (define (tok->sym s)
-    (case s [(:=) 'DEFINE] [(=) 'ASSIGN]
-          [else (raise-syntax-error 'type-switch "expected := or =")]))
+  (define (guard-token op-stx)
+    (case (syntax-e op-stx)
+      [(:=) 'DEFINE]
+      [(=) 'ASSIGN]
+      [else (raise-syntax-error 'type-switch "expected := or =" op-stx)]))
+  (define (build-clauses raw)
+    (for/list ([clause (in-list (syntax->list raw))])
+      (syntax-parse clause
+        #:datum-literals (case default)
+        [(case grouped body:expr ...+)
+         #:when (square-bracketed? #'grouped)
+         (syntax-parse #'grouped
+           [(tys:expr ...+)
+            #'(go:CaseClause #:id (new-id!) #:case #f #:list (list (->expr tys) ...) #:colon #f #:body (list (expr->stmt body) ...))]
+           [_ (raise-syntax-error 'type-switch "expected one or more types" #'grouped)])]
+        [(case ty:expr body:expr ...+)
+         #'(go:CaseClause #:id (new-id!) #:case #f #:list (list (->expr ty)) #:colon #f #:body (list (expr->stmt body) ...))]
+        [(default body:expr ...+)
+         #'(go:CaseClause #:id (new-id!) #:case #f #:list #f #:colon #f #:body (list (expr->stmt body) ...))])))
   (syntax-parse stx
-    #:datum-literals (case default := =)
-
-    ;; switch x := e.(type) { ... }
-    [(_ [id:id tok:id] subject:expr raw-clause ...+)
-     (define clauses
-       (for/list ([c (in-list (syntax->list #'(raw-clause ...)))])
-         (syntax-parse c
-           [(case (tys:expr ...) body:expr ...+)
-            #'(go:CaseClause #:id (new-id!) #:case #f #:list (list (->expr tys) ...) #:colon #f #:body (list (expr->stmt body) ...))]
-           [(default body:expr ...+)
-            #'(go:CaseClause #:id (new-id!) #:case #f #:list '() #:colon #f #:body (list (expr->stmt body) ...))])))
-     (with-syntax ([(cl ...) clauses]
-                   [g (ts-guard (syntax-e #'id) (tok->sym (syntax-e #'tok)) #'subject)])
-       #'(go:TypeSwitchStmt #:id (new-id!) #:switch #f #:init #f #:assign g #:body (go:BlockStmt #:id (new-id!) #:lbrace #f #:list (list cl ...) #:rbrace #f)))]
-
-    ;; switch e.(type) { ... }
+    [(_ (op:id id:id subject:expr) raw-clause ...+)
+     #:when (memq (syntax-e #'op) '(:= =))
+     (define clauses (build-clauses #'(raw-clause ...)))
+     (define token (guard-token #'op))
+     (with-syntax ([(clause-node ...) clauses]
+                   [guard (ts-guard (syntax-e #'id) token #'subject)])
+       #'(go:TypeSwitchStmt #:id (new-id!) #:switch #f #:init #f #:assign guard #:body (go:BlockStmt #:id (new-id!) #:lbrace #f #:list (list clause-node ...) #:rbrace #f)))]
     [(_ subject:expr raw-clause ...+)
-     (define clauses
-       (for/list ([c (in-list (syntax->list #'(raw-clause ...)))])
-         (syntax-parse c
-           [(case (tys:expr ...) body:expr ...+)
-            #'(go:CaseClause #:id (new-id!) #:case #f #:list (list (->expr tys) ...) #:colon #f #:body (list (expr->stmt body) ...))]
-           [(default body:expr ...+)
-            #'(go:CaseClause #:id (new-id!) #:case #f #:list '() #:colon #f #:body (list (expr->stmt body) ...))])))
-     (with-syntax ([(cl ...) clauses]
-                   [g (ts-guard #f #f #'subject)])
-       #'(go:TypeSwitchStmt #:id (new-id!) #:switch #f #:init #f #:assign g #:body (go:BlockStmt #:id (new-id!) #:lbrace #f #:list (list cl ...) #:rbrace #f)))]))
+     (define clauses (build-clauses #'(raw-clause ...)))
+     (with-syntax ([(clause-node ...) clauses]
+                   [guard (ts-guard #f #f #'subject)])
+       #'(go:TypeSwitchStmt #:id (new-id!) #:switch #f #:init #f #:assign guard #:body (go:BlockStmt #:id (new-id!) #:lbrace #f #:list (list clause-node ...) #:rbrace #f)))]))
 
 
-
-;; allow function literals to appear anywhere expressions can
-;; (add this once next to your existing ->expr)
-;; (define (->expr v) (cond [(or ... (go:FuncLit? v)) v] ...))
+;; Function literals use the same signature form as defn.
 
 (define-syntax (fn stx)
   (syntax-parse stx
-    #:datum-literals (->)
-
-    ;; WITH results — must come first so `->` doesn’t get eaten by body:expr ...
-    [(_ (p:param-pair ...) -> (ret:expr ...) body:expr ...+)
-     #'(go:FuncLit #:id (new-id!) #:type (go:FuncType #:id (new-id!) #:func #f #:type-params #f #:params (params->fieldlist (list p.datum ...)) #:results (results->fieldlist (list ret ...))) #:body (go:BlockStmt #:id (new-id!) #:lbrace #f #:list (map expr->stmt (list body ...)) #:rbrace #f))]
-
-    ;; NO results
-    [(_ (p:param-pair ...) body:expr ...+)
-     #'(go:FuncLit #:id (new-id!) #:type (go:FuncType #:id (new-id!) #:func #f #:type-params #f #:params (params->fieldlist (list p.datum ...)) #:results #f) #:body (go:BlockStmt #:id (new-id!) #:lbrace #f #:list (map expr->stmt (list body ...)) #:rbrace #f))]))
+    [(_ sig:go-signature body:expr ...+)
+     #'(go:FuncLit #:id (new-id!)
+                  #:type (go:FuncType #:id (new-id!) #:func #f #:type-params #f #:params (params->fieldlist sig.params) #:results (results->fieldlist sig.results))
+                  #:body (go:BlockStmt #:id (new-id!) #:lbrace #f #:list (map expr->stmt (list body ...)) #:rbrace #f))]))
 
 
-;; `nil` must receive an ID in the consuming module's allocation sequence.
+;; `nil` receives an ID in the consuming module's allocation sequence.
 ;; A module-level node would survive `reset-ids!` and collide with the first
 ;; node constructed by every Gorack program.
 (define-syntax nil
   (syntax-id-rules ()
     [nil (->ident* "nil")]))
-(define (rune c) (go:BasicLit #:id (new-id!) #:value-pos #f #:kind 'CHAR #:value (format "'~a'" c))) ; tweak escaping as needed
-(define (imag s) (go:BasicLit #:id (new-id!) #:value-pos #f #:kind 'IMAG #:value s))                 ; e.g., "10i"
 
 
 
@@ -1255,16 +1158,9 @@
          (mk-selector-chain parts)
          ;; plain id → go:Ident
          #`(->ident* '#,sym))]))
-; (define-syntax (gorack-#%top stx)
-;   (syntax-parse stx
-;     [(_ . id:id)
-;      #`(->ident* '#,(syntax-e #'id))]))
 
 
 ;; Simple module-begin that just evaluates forms (they should produce a go:File or decls)
-; (define-syntax (gorack-#%module-begin stx)
-;   (syntax-parse stx
-;     [(_ e:expr ... ) #'(#%module-begin e ...)]))
 
 (define-syntax (gorack-#%module-begin stx)
   (syntax-parse stx

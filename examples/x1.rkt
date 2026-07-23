@@ -1,115 +1,104 @@
-#lang racket
-(require "../gorack/lang/main.rkt"
-         "../gorack/go-kernel/wire.rkt")
+#lang gorack
 
-(define prog
-  (package hi
-    (import "fmt")
-    (defn add ([x int] [y int] ) -> (int)
-        (return (+ x y)))
-    (defn noResult ()
-      (return))
-    (defn square ([x int]) -> (int)
-      (return (* x x)))
-    (defn divmod ([a int] [b int]) -> (int int)
-      (return (/ a b)
-              (% a b)))
-    (defn doNothing ()
-      (return))
-    ; (defn getAnswer () -> (int)
-    ;     (return 42))    
-    ; (defn greet ((name strin))
-    ;     (call printlna "Hello" name))
-    ; (defn mixTypes ((flag bool) (cnt int)) -> (str)
-    ;     (if_ flag
-    ;          (return (mkstr "True and count is") cnt)
-    ;          (return (mkstr "False and count is") cnt)))
-    (defn useSquare ((n int)) -> (int)
-        (return (call square n)))
-    (defn (r (ptr 'T)) move ((dx int) (dy int))
-      (assign += [(sel p x)] [dx])
-      (assign += [(sel p y)] [dy])
-      (return))
-    (defn (r 'T) MethodName () (return))
-    (defn (r (ptr 'T)) SetValue ((dx int)) (return))
-    (defn (r 'T) normalize () -> (Point)
-            (block
-              (assign := [mag] [(call (sel p magnitude))])
-              (return (composite Point
-                                (list (kv x (/ (sel p x) mag))
-                                      (kv y (/ (sel p y) mag)))))))
+(package broadexample
+  (import "context")
+  (import "fmt")
+  (import "io")
 
-    ;; (optional) a couple of top-level decls
-    (defn main ()
-      (:= x 1)
-      (if_ #t #t)
-      (index arr 2)
-      (slice-expr s 1 3)
-      (slice-expr s 1 3 5)
-      (type-assert x T)
-      (array 3 int)
-      (array '... byte)
-      (slice int)
-      (map_ str int)
-      (struct_ x int)
-      (struct_ (x y ) int)
-      (composite Point (list (kv x 1) (kv y 2)) )
-      (! ok)
-      (&& a b)
-      (>= 7 5)
-      (return (+ 2 3))
-      (block (:= x 9) (return 9))
-      (if_ condy  
-        (return 3)
-        (return 4)
-      )
-      (for_ keepGoing
-        (return 0)
-      )
-      (for_ (:= i 0)
-        (binary "LSS" i 3)
-        (+= i 1)
-        (return i)
-      )
+  (type Point
+    (struct
+      (x float64)
+      (y float64)))
 
-(type MyStruct
-  (struct_
-    ; (FieldName    string ())
-    (AnotherField int    (tag (json another_field #:omitempty)))))
-      ;; short decls + compound assigns + inc/dec
-    (for_ (= x 1)
-              (< i 3)
-              (+= [i f] [3 5])
-              (continue* Top))
-    (for_ (return 1))
-    (for-range := [k v] xs 
-        (return k))
-    (for-range := [k] xs 
-        (return k))
-    (for-range := [] xs 
-        (return k))
-    (switch bleh
-      (case 1 (return h))
-      (case ((== x y)) (return b))
-      (case (2 3 4) (return c))
-      (default (return)))
-    (switch 
-      (case 1 (return h))
-      (case ((== y z)) (return b))
-      (default (return)))
-    (chan* int)
-    (chan* str #:dir 'send)
-    (chan* bool   #:dir 'recv)
-    (var n int )
-    (var= n int 10)
-    (var= [x y z] 1 2 3)
-    (var= [u v] int 1 2)  
-    (const= a 4)
-    (interface_
-        (method Read ([p (slice byte)]) -> (int error))
-        (embed io.Reader))
+  (type Reader
+    (interface
+      (method Read (-> ([p (slice byte)]) (int error)))
+      (embed io.Reader)))
 
-    )))
+  (defn useContext
+    (-> ([ctx context.Context]) ())
+    (= _ ctx))
 
-;; write JSON for your Go side to round-trip to .go
-(write-go-ast-json-file "x1.wire.json" prog)
+  (defn divmod
+    (-> ([a int] [b int]) (int int))
+    (return (/ a b) (% a b)))
+
+  (defn chooseAny
+    (-> ([a int] [b int]) (any))
+    (= _ b)
+    (return a))
+
+  ;; Surface form names remain ordinary Go identifiers in operand position.
+  (defn identityIndex
+    (-> ([index int]) (int))
+    (return index))
+
+  (defn (p (ptr Point)) move
+    (-> ([dx float64] [dy float64]) ())
+    (+= p.x dx)
+    (+= p.y dy))
+
+  (defn main
+    (-> () ())
+    (:= index (identityIndex 0))
+    (+= index 1)
+    (if (> index 0)
+      (fmt.Println "index:" index))
+
+    (:= xs (composite (slice int) 1 2 3))
+    (for-range (:= [index value] xs)
+      (fmt.Println index value))
+
+    (:= ch (make (chan int)))
+    (go (fmt.Println "async"))
+    (select
+      (case (:= [value ok] (<- ch))
+        (fmt.Println value ok))
+      (default
+        (fmt.Println "no value")))
+
+    ;; Multiple assignment targets can receive one multi-valued expression.
+    (:= [received receiveOK] (<- ch))
+    (= _ received)
+    (= _ receiveOK)
+
+    (:= anyValue (any 1))
+    (type-switch (:= value anyValue)
+      (case int
+        (fmt.Println "int" value))
+      (case [string bool]
+        (fmt.Println "string or bool"))
+      (default
+        (fmt.Println "other")))
+
+    ;; A call-shaped subject must not be mistaken for a binding clause.
+    (type-switch (chooseAny 1 2)
+      (case int
+        (fmt.Println "chosen int"))
+      (default
+        (fmt.Println "chosen other")))
+
+    (switch (init (:= n (len xs))) n
+      (case 0 (fmt.Println "empty"))
+      (default (fmt.Println "items" n)))
+
+    (if (init (:= n (len xs))) (> n 0)
+      (fmt.Println "non-empty"))
+
+    ;; A begin-only branch must remain an if without an empty else block.
+    (:= ready #t)
+    (if ready
+      (begin
+        (= ready #f)
+        (fmt.Println "ready")))
+
+    ;; Condition loops remain unambiguous with several body statements.
+    (:= running #f)
+    (for running
+      (= running #f)
+      (fmt.Println "loop")
+      (break))
+
+    (for (forever)
+      (break))
+    (return)))

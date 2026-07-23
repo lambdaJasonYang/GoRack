@@ -4,34 +4,11 @@
   <img src="assets/gorack-mascot.webp" alt="Gorack mascot" width="280">
 </p>
 
-Gorack lets you write Go programs with Lisp-style syntax and work with Go syntax as structured JSON.
-
-With Gorack you can:
-
-- Write Go programs using `#lang gorack`.
-- Generate formatted `.go` files.
-- Convert existing Go source into a versioned JSON syntax format.
-- Convert Gorack JSON back into Go source.
-- Read, inspect, transform, and write Go syntax from Racket.
-- Build code generators and language tools that emit Go.
+Gorack lets you write Go programs with Lisp-style syntax and work with Go source as structured JSON.
 
 ## Install
 
-Choose the branch or tag that matches your Go version.
-
-Version branches are named like:
-
-```text
-go1.26.5
-```
-
-Release tags include both the Gorack and Go versions:
-
-```text
-v0.1.0-go1.26.5
-```
-
-Clone a version branch:
+Choose the branch or release tag matching your Go version:
 
 ```bash
 git clone --branch go1.26.5 https://github.com/lambdaJasonYang/GoRack.git
@@ -40,20 +17,14 @@ cd GoRack
 
 Requirements:
 
-- The Go version listed in `MANIFEST.json`
+- The Go version recorded in `MANIFEST.json`
 - Racket 8.x
 - GNU Make
 
-Build the Go bridge:
+Build the bridge:
 
 ```bash
 make bridge
-```
-
-The bridge binary is written to:
-
-```text
-go-bridge/bin/gorack-go-bridge
 ```
 
 ## Quick start
@@ -66,28 +37,21 @@ Create `hello.rkt`:
 (package main
   (import "fmt")
 
-  (defn main ()
+  (defn main
+    (-> () ())
     (:= name "Gorack")
-    (call fmt.Println "Hello from" name)))
+    (fmt.Println "Hello from" name)))
 ```
 
-Run the Gorack program to create its JSON representation:
+Generate and run Go:
 
 ```bash
 PLTCOLLECTS="$PWD:" racket hello.rkt > hello.wire.json
-```
 
-Convert the JSON to Go:
-
-```bash
 go-bridge/bin/gorack-go-bridge decode \
   -in hello.wire.json \
   -out hello.go
-```
 
-Run the generated program:
-
-```bash
 go run hello.go
 ```
 
@@ -97,65 +61,80 @@ Output:
 Hello from Gorack
 ```
 
-The generated Go is formatted with the standard Go formatter.
-
-## Install the Racket language
-
-To use `#lang gorack` without setting `PLTCOLLECTS`, install the local Racket package:
+Install the Racket language as a linked package to omit `PLTCOLLECTS`:
 
 ```bash
 raco pkg install --auto --link ./gorack
 ```
 
-You can then run Gorack files directly:
+## Functions and calls
 
-```bash
-racket hello.rkt > hello.wire.json
-```
-
-Remove the linked package with:
-
-```bash
-raco pkg remove gorack
-```
-
-## Language examples
-
-### Packages and imports
+Functions use a headed signature form:
 
 ```racket
-(package main
-  (import "fmt")
-  (import "strings")
+(defn add
+  (-> ([x int] [y int]) (int))
+  (return (+ x y)))
+```
+
+The first signature list contains parameters and the second contains results. Use square brackets for named parameter and result bindings. Empty lists mean no parameters or no results:
+
+```racket
+(defn main
+  (-> () ())
   ...)
 ```
 
-### Functions
+Named results are supported:
 
 ```racket
-(defn add ([x int] [y int]) -> (int)
-  (return (+ x y)))
-
-(defn main ()
-  (:= total (call add 20 22))
-  (call fmt.Println total))
+(defn divide
+  (-> ([x float64] [y float64])
+      ([result float64] [err error]))
+  ...)
 ```
 
-### Variables and assignment
+Call functions directly with the callee at the head:
+
+```racket
+(add 20 22)
+(fmt.Println "total:" total)
+(strings.ToUpper name)
+```
+
+Dotted selectors remain intact:
+
+```racket
+request.URL.Path
+service.Handler
+(service.Handler request)
+```
+
+Function literals use the same signature syntax:
+
+```racket
+(fn
+  (-> ([x int]) (int))
+  (return (* x x)))
+```
+
+## Variables and assignment
 
 ```racket
 (:= count 0)
 (= count 10)
 (+= count 1)
 
+(:= [x y] [10 20])
+
 (var name string)
 (var= [language string "Gorack"])
 (const= Answer 42)
 ```
 
-### Expressions
+Supported compound assignment heads include `+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `bit-or=`, `^=`, `<<=`, `>>=`, and `&^=`.
 
-Gorack uses prefix notation:
+## Expressions
 
 ```racket
 (+ x y)
@@ -171,109 +150,263 @@ Gorack uses prefix notation:
 (> x y)
 (>= x y)
 
-(&& ready valid)
-(|| cached available)
+(and ready valid)
+(or cached available)
 (! failed)
 ```
 
-### Function calls and selectors
+Unary and binary forms share their Go operator where possible:
 
 ```racket
-(call fmt.Println "hello")
-(call strings.ToUpper name)
-(sel person Name)
-person.Name
+(- value)        ; -value
+(* pointer)      ; *pointer
+(& value)        ; &value
+
+(* left right)   ; left * right
+(& left right)   ; left & right
 ```
 
-### Conditions
+Additional bitwise forms:
 
 ```racket
-(if_ (> total 10)
-  (call fmt.Println "large")
-  (call fmt.Println "small"))
+(bit-or a b)
+(xor a b)
+(and-not a b)
+(<< value bits)
+(>> value bits)
 ```
 
-### Loops
+## Conditions
+
+```racket
+(if (> total 10)
+  (fmt.Println "large")
+  (fmt.Println "small"))
+```
+
+Use `begin` for multi-statement branches:
+
+```racket
+(if ready
+  (begin
+    (fmt.Println "starting")
+    (start))
+  (begin
+    (fmt.Println "waiting")
+    (wait)))
+```
+
+Go-style initialization is expressed with a headed `init` clause:
+
+```racket
+(if (init (:= value (readValue)))
+    (> value 0)
+  (fmt.Println value))
+```
+
+## Loops
 
 Condition loop:
 
 ```racket
-(for_ running
-  (call work))
+(for running
+  (work))
 ```
 
 Three-part loop:
 
 ```racket
-(for_ (:= i 0) (< i 10) (+= i 1)
-  (call fmt.Println i))
+(for (:= i 0) (< i 10) (+= i 1)
+  (fmt.Println i))
+```
+
+For arbitrary init or post expressions, use explicit headed clauses:
+
+```racket
+(for (init (prepare)) ready (post (advance))
+  (work))
+```
+
+Infinite loop:
+
+```racket
+(for (forever)
+  (work))
 ```
 
 Range loop:
 
 ```racket
-(for-range := [index value] values
-  (call fmt.Println index value))
+(for-range (:= [index value] values)
+  (fmt.Println index value))
 ```
 
-### Structs
+Assign to existing variables with `=`:
+
+```racket
+(for-range (= [index value] values)
+  ...)
+```
+
+Ignore both range bindings:
+
+```racket
+(for-range values
+  ...)
+```
+
+## Switches
+
+```racket
+(switch value
+  (case 1
+    (fmt.Println "one"))
+  (case [2 3]
+    (fmt.Println "two or three"))
+  (default
+    (fmt.Println "other")))
+```
+
+Switch with initialization:
+
+```racket
+(switch (init (:= value (readValue))) value
+  (case 0 ...)
+  (default ...))
+```
+
+Type switch:
+
+```racket
+(type-switch (:= value input)
+  (case int
+    (fmt.Println "int" value))
+  (case [string bool]
+    (fmt.Println "string or bool"))
+  (default
+    (fmt.Println "other")))
+```
+
+Without a binding:
+
+```racket
+(type-switch input
+  (case int ...)
+  (default ...))
+```
+
+## Channels and select
+
+Channel types:
+
+```racket
+(chan int)
+(chan-send int)
+(chan-recv int)
+```
+
+Send and receive:
+
+```racket
+(send output value)
+(<- input)
+(:= value (<- input))
+(:= [value ok] (<- input))
+```
+
+Select clauses use the same headed operations:
+
+```racket
+(select
+  (case (send output value)
+    (fmt.Println "sent"))
+
+  (case (<- input)
+    (fmt.Println "received"))
+
+  (case (:= value (<- input))
+    (fmt.Println value))
+
+  (case (:= [value ok] (<- input))
+    (fmt.Println value ok))
+
+  (default
+    (fmt.Println "not ready")))
+```
+
+## Structs and composite literals
 
 ```racket
 (type Person
-  (struct_
+  (struct
     (Name string)
-    (Age int)))
+    (Age int)
+    (Note string (tag (json note #:omitempty)))))
 ```
-
-Create a struct value:
 
 ```racket
 (:= person
   (composite Person
-    [(kv Name "Ada")
-     (kv Age 37)]))
+    (kv Name "Ada")
+    (kv Age 37)))
 ```
 
-Struct tags:
-
-```racket
-(type Message
-  (struct_
-    (Text string (tag (json text)))
-    (Note string (tag (json note #:omitempty)))))
-```
-
-### Types and collections
+## Types and interfaces
 
 ```racket
 (type UserID int)
-(type-alias Reader = io.Reader)
+(type-alias Reader io.Reader)
 
 (ptr Person)
 (array 10 int)
 (slice string)
-(map_ string int)
+(map string int)
 ```
 
-More complete programs are available in the `examples/` directory.
+Interface methods use the same signature syntax:
+
+```racket
+(type Reader
+  (interface
+    (method Read
+      (-> ([buffer (slice byte)]) (int error)))
+    (embed io.Closer)))
+```
+
+## Methods
+
+```racket
+(defn (p (ptr Person)) Rename
+  (-> ([name string]) ())
+  (= p.Name name))
+```
+
+## Statements
+
+```racket
+(return value)
+(block statement ...)
+(go (serve listener))
+(defer (file.Close))
+(send channel value)
+(inc index)
+(dec index)
+(label retry statement)
+(break)
+(break outer)
+(continue)
+(continue outer)
+(goto retry)
+(fallthrough)
+```
 
 ## Convert Go to JSON
-
-Build the bridge first:
-
-```bash
-make bridge
-```
-
-Convert a Go file into Gorack JSON:
 
 ```bash
 go-bridge/bin/gorack-go-bridge encode \
   -in input.go \
   -out input.wire.json
 ```
-
-The JSON contains the parsed Go syntax, node references, source positions, comments, tokens, and schema information.
 
 ## Convert JSON to Go
 
@@ -283,35 +416,22 @@ go-bridge/bin/gorack-go-bridge decode \
   -out output.go
 ```
 
-The bridge validates the document, rebuilds the Go syntax tree, and writes formatted Go source.
+Generate a source map while decoding:
 
-## Inspect the schema
+```bash
+go-bridge/bin/gorack-go-bridge decode \
+  -in input.wire.json \
+  -out output.go \
+  -source-map output.map.json
+```
 
-Display the Go syntax schema included with the current release:
+Display the schema included with the release:
 
 ```bash
 go-bridge/bin/gorack-go-bridge schema
 ```
 
-## Round-trip an existing Go file
-
-```bash
-go-bridge/bin/gorack-go-bridge encode \
-  -in server.go \
-  -out server.wire.json
-
-go-bridge/bin/gorack-go-bridge decode \
-  -in server.wire.json \
-  -out server.generated.go
-
-go test server.generated.go
-```
-
-## Work with the JSON from Racket
-
-The `gorack/go-kernel` modules provide readers, writers, generated node constructors, matchers, token definitions, transformations, and metadata helpers.
-
-A simple JSON pass-through program:
+## Work with the syntax tree from Racket
 
 ```racket
 #lang racket
@@ -326,51 +446,14 @@ A simple JSON pass-through program:
   unit)
 ```
 
-This can be extended to inspect nodes, replace expressions, add declarations, attach annotations, or generate new Go files.
-
-## Useful commands
-
-Build the bridge:
+## Commands
 
 ```bash
 make bridge
-```
-
-Run the Go and Racket tests included with the distribution:
-
-```bash
 make test
-```
-
-Run only Go tests:
-
-```bash
 make go-test
-```
-
-Run only Racket tests:
-
-```bash
 make racket-test
-```
-
-Remove built files:
-
-```bash
 make clean
 ```
 
-## Release information
-
-`MANIFEST.json` records the release details:
-
-```json
-{
-  "gorackVersion": "0.1.0",
-  "goVersion": "go1.26.5",
-  "goAstSchemaHash": "sha256:...",
-  "sourceCommit": "..."
-}
-```
-
-Use the branch or tag matching the Go version used by your project.
+`MANIFEST.json` records the Gorack version, exact Go version, schema hash, and source commit for the distribution.
