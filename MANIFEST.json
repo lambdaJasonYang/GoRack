@@ -1,8 +1,8 @@
 {
   "format": "gorack-public-distribution",
   "formatVersion": 1,
-  "gorackVersion": "0.1.0",
+  "gorackVersion": "0.1.1",
   "goVersion": "go1.23.2",
   "goAstSchemaHash": "sha256:e70556ee3da296bef7886d0638688e392fa5b1e2429aaa5362379de5e1284135",
-  "sourceCommit": "a83ae983dc38632dbad40ba0f5cbc5c7aaf355b7"
+  "sourceCommit": "6ab438f461ce6d5a4b45e392e621d10ee33535f7"
 }
